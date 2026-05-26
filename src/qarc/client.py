@@ -2,26 +2,27 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
+@dataclass
+class ToolCall:
+    name: str
+    input: dict[str, Any]
+    id: str
+
+
+@dataclass
 class LLMResponse:
-    """Minimal response envelope from any LLM provider."""
-
     stop_reason: str  # "end_turn" | "tool_use" | "max_tokens"
-    content: list[Any]
-
-    def __init__(self, stop_reason: str, content: list[Any]) -> None:
-        self.stop_reason = stop_reason
-        self.content = content
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    content: str = ""
 
 
 class LLMClient(Protocol):
-    """Protocol that any LLM provider implementation must satisfy."""
-
     def chat(
         self,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
-    ) -> LLMResponse:
-        ...
+    ) -> LLMResponse: ...
