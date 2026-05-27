@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -42,6 +42,20 @@ class AgentRuntime:
         ts = int(datetime.now(timezone.utc).timestamp())
         return f"{uuid4().hex[:8]}_{ts}"
 
+    def _validate_input(self, tool_name: str, tool_input: dict[str, Any]) -> str | None:
+        """Return an error message if tool_input fails schema validation, else None."""
+        schema = next(
+            (s for s in self._registry.get_schemas() if s["name"] == tool_name),
+            None,
+        )
+        if schema is None:
+            return f"Unknown tool: {tool_name!r}"
+        required: list[str] = schema.get("input_schema", {}).get("required", [])
+        missing = [f for f in required if f not in tool_input]
+        if missing:
+            return f"Missing required field(s): {', '.join(repr(f) for f in missing)}"
+        return None
+
     def run(self, query: str) -> RunResult:
         """Execute agent loop. Terminal states: completed | error | max_steps_exceeded."""
         run_id = self._make_run_id()
@@ -50,6 +64,7 @@ class AgentRuntime:
             {"role": "system", "content": self._system_prompt},
             {"role": "user", "content": query},
         ]
+        error_count = 0
 
         for _ in range(self._max_steps):
             response = self._llm.chat(messages, self._registry.get_schemas())
@@ -75,19 +90,26 @@ class AgentRuntime:
                 })
             messages.append({"role": "assistant", "content": assistant_content})
 
-            # Dispatch each tool call; build tool_result blocks
             tool_result_blocks: list[dict[str, Any]] = []
             for tc in response.tool_calls:
-                try:
-                    result: dict[str, Any] = self._registry.call(tc.name, tc.input)
-                except Exception as exc:
-                    result = {
-                        "error": str(exc),
+                # Validate before dispatch
+                validation_err = self._validate_input(tc.name, tc.input)
+                if validation_err:
+                    result: dict[str, Any] = {
+                        "error": validation_err,
                         "tool": tc.name,
                         "suggestion": "Verify input parameters",
                     }
+                else:
+                    try:
+                        result = self._registry.call(tc.name, tc.input)
+                    except Exception as exc:
+                        result = {
+                            "error": str(exc),
+                            "tool": tc.name,
+                            "suggestion": "Verify input parameters",
+                        }
 
-                # Full result (incl. raw_qasm) stored in steps — ADR-002
                 steps.append({
                     "step": len(steps),
                     "tool_name": tc.name,
@@ -95,7 +117,19 @@ class AgentRuntime:
                     "tool_result": result,
                 })
 
-                # Only summary passed back to LLM — ADR-002
+                if "error" in result:
+                    error_count += 1
+                    if error_count >= self._max_retries:
+                        return RunResult(
+                            status="error",
+                            final_answer="",
+                            steps=steps,
+                            run_id=run_id,
+                        )
+                else:
+                    error_count = 0  # reset on any successful tool call
+
+                # ADR-002: only summary reaches the LLM
                 summary = result.get("summary", result)
                 tool_result_blocks.append({
                     "type": "tool_result",
