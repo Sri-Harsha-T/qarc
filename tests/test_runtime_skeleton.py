@@ -47,11 +47,6 @@ def test_agent_runtime_stores_system_prompt() -> None:
     assert rt._system_prompt == "Custom prompt"
 
 
-def test_run_raises_not_implemented() -> None:
-    rt = _make_runtime()
-    with pytest.raises(NotImplementedError):
-        rt.run("Build a circuit")
-
 
 def test_make_run_id_format() -> None:
     run_id = AgentRuntime._make_run_id()

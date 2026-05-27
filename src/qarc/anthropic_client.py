@@ -22,10 +22,16 @@ class AnthropicClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> LLMResponse:
+        # Anthropic SDK uses a separate `system` param, not a role in messages
+        system = " ".join(
+            str(m["content"]) for m in messages if m.get("role") == "system"
+        )
+        api_messages = [m for m in messages if m.get("role") != "system"]
         response = self._client.messages.create(
             model=self._model,
             max_tokens=4096,
-            messages=messages,  # type: ignore[arg-type]
+            system=system or anthropic.NOT_GIVEN,  # type: ignore[arg-type]
+            messages=api_messages,  # type: ignore[arg-type]
             tools=tools,  # type: ignore[arg-type]
         )
         tool_calls = [
