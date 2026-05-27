@@ -122,3 +122,15 @@ def test_count_resources_registered() -> None:
 def test_count_resources_schema_requires_qasm_str() -> None:
     schema = next(s for s in registry.get_schemas() if s["name"] == "count_resources")
     assert "qasm_str" in schema["input_schema"]["required"]
+
+
+def test_count_resources_reports_basis_gates_not_library_gates() -> None:
+    # GroverOperator circuits contain a composite 'Q' gate; count_resources must
+    # transpile to basis gates so 'gate_Q' never appears in results.
+    from qarc.tools.circuit import create_grover_circuit
+    grover = create_grover_circuit(n_qubits=3, n_iterations=1)
+    qasm_str = grover["summary"]["qasm_str"]
+    result = count_resources(qasm_str)
+    gate_counts = result["summary"]["gate_counts"]
+    assert "Q" not in gate_counts, f"Composite gate 'Q' leaked into counts: {gate_counts}"
+    assert result["summary"]["total_gates"] >= 5
