@@ -5,11 +5,15 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from time import perf_counter
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from qarc.client import LLMClient
 from qarc.registry import ToolRegistry
+
+if TYPE_CHECKING:
+    from qarc.trace import TraceStore
 
 
 @dataclass
@@ -30,12 +34,14 @@ class AgentRuntime:
         system_prompt: str,
         max_steps: int = 10,
         max_retries: int = 2,
+        trace_store: TraceStore | None = None,
     ) -> None:
         self._llm = llm
         self._registry = registry
         self._system_prompt = system_prompt
         self._max_steps = max_steps
         self._max_retries = max_retries
+        self._trace_store = trace_store
 
     @staticmethod
     def _make_run_id() -> str:
@@ -56,6 +62,30 @@ class AgentRuntime:
             return f"Missing required field(s): {', '.join(repr(f) for f in missing)}"
         return None
 
+    def _build_trace(
+        self,
+        run_id: str,
+        query: str,
+        result: RunResult,
+        duration: float,
+    ) -> dict[str, Any]:
+        return {
+            "run_id": run_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "problem": query,
+            "model": self._llm.model,
+            "status": result.status,
+            "steps": result.steps,
+            "final_answer": result.final_answer,
+            "metadata": {
+                "total_steps": len(result.steps),
+                "total_tool_calls": sum(
+                    1 for s in result.steps if "tool_error" not in s
+                ),
+                "duration_seconds": round(duration, 3),
+            },
+        }
+
     def run(self, query: str) -> RunResult:
         """Execute agent loop. Terminal states: completed | error | max_steps_exceeded."""
         run_id = self._make_run_id()
@@ -65,17 +95,20 @@ class AgentRuntime:
             {"role": "user", "content": query},
         ]
         error_count = 0
+        start = perf_counter()
 
         for _ in range(self._max_steps):
             response = self._llm.chat(messages, self._registry.get_schemas())
 
             if response.stop_reason != "tool_use":
-                return RunResult(
+                result = RunResult(
                     status="completed",
                     final_answer=response.content,
                     steps=steps,
                     run_id=run_id,
                 )
+                self._maybe_save_trace(run_id, query, result, perf_counter() - start)
+                return result
 
             # Reconstruct assistant message with tool_use blocks (Anthropic format)
             assistant_content: list[dict[str, Any]] = []
@@ -95,42 +128,56 @@ class AgentRuntime:
                 # Validate before dispatch
                 validation_err = self._validate_input(tc.name, tc.input)
                 if validation_err:
-                    result: dict[str, Any] = {
+                    tool_result: dict[str, Any] = {
                         "error": validation_err,
                         "tool": tc.name,
                         "suggestion": "Verify input parameters",
                     }
+                    steps.append({
+                        "step": len(steps),
+                        "tool_name": tc.name,
+                        "tool_input": tc.input,
+                        "tool_error": tool_result,
+                    })
                 else:
                     try:
-                        result = self._registry.call(tc.name, tc.input)
+                        raw_result = self._registry.call(tc.name, tc.input)
+                        steps.append({
+                            "step": len(steps),
+                            "tool_name": tc.name,
+                            "tool_input": tc.input,
+                            "tool_result": raw_result,
+                        })
+                        tool_result = raw_result
                     except Exception as exc:
-                        result = {
+                        tool_result = {
                             "error": str(exc),
                             "tool": tc.name,
                             "suggestion": "Verify input parameters",
                         }
+                        steps.append({
+                            "step": len(steps),
+                            "tool_name": tc.name,
+                            "tool_input": tc.input,
+                            "tool_error": tool_result,
+                        })
 
-                steps.append({
-                    "step": len(steps),
-                    "tool_name": tc.name,
-                    "tool_input": tc.input,
-                    "tool_result": result,
-                })
-
-                if "error" in result:
+                if "error" in tool_result:
                     error_count += 1
                     if error_count >= self._max_retries:
-                        return RunResult(
+                        result = RunResult(
                             status="error",
                             final_answer="",
                             steps=steps,
                             run_id=run_id,
                         )
+                        self._maybe_save_trace(run_id, query, result, perf_counter() - start)
+                        return result
                 else:
-                    error_count = 0  # reset on any successful tool call
+                    error_count = 0
 
                 # ADR-002: only summary reaches the LLM
-                summary = result.get("summary", result)
+                summary = tool_result.get("summary", tool_result)
                 tool_result_blocks.append({
                     "type": "tool_result",
                     "tool_use_id": tc.id,
@@ -139,9 +186,17 @@ class AgentRuntime:
 
             messages.append({"role": "user", "content": tool_result_blocks})
 
-        return RunResult(
+        result = RunResult(
             status="max_steps_exceeded",
             final_answer="",
             steps=steps,
             run_id=run_id,
         )
+        self._maybe_save_trace(run_id, query, result, perf_counter() - start)
+        return result
+
+    def _maybe_save_trace(
+        self, run_id: str, query: str, result: RunResult, duration: float
+    ) -> None:
+        if self._trace_store is not None:
+            self._trace_store.save(self._build_trace(run_id, query, result, duration))

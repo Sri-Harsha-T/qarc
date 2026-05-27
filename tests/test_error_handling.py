@@ -64,8 +64,8 @@ def test_missing_required_field_returns_validation_error() -> None:
     result = rt.run("go")
 
     step = result.steps[0]
-    assert "error" in step["tool_result"]
-    assert "x" in step["tool_result"]["error"]
+    assert "error" in step["tool_error"]
+    assert "x" in step["tool_error"]["error"]
 
 
 def test_unknown_tool_returns_validation_error() -> None:
@@ -78,7 +78,7 @@ def test_unknown_tool_returns_validation_error() -> None:
     result = rt.run("go")
 
     step = result.steps[0]
-    assert "Unknown tool" in step["tool_result"]["error"]
+    assert "Unknown tool" in step["tool_error"]["error"]
 
 
 def test_valid_input_does_not_produce_error() -> None:
@@ -90,7 +90,7 @@ def test_valid_input_does_not_produce_error() -> None:
     rt = _runtime(responses, max_retries=2)
     result = rt.run("go")
     assert result.status == "completed"
-    assert "error" not in result.steps[0]["tool_result"]
+    assert "tool_error" not in result.steps[0]
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,7 @@ def test_error_result_has_required_fields() -> None:
     rt = _runtime(responses, registry=_make_failing_registry(), max_retries=5)
     result = rt.run("go")
 
-    err = result.steps[0]["tool_result"]
+    err = result.steps[0]["tool_error"]
     assert "error" in err
     assert "tool" in err
     assert "suggestion" in err

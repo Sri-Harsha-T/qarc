@@ -183,8 +183,8 @@ def test_tool_exception_stored_as_error_in_steps() -> None:
 
     assert result.status == "completed"
     step = result.steps[0]
-    assert step["tool_result"]["error"] == "boom"
-    assert step["tool_result"]["tool"] == "bad_tool"
+    assert step["tool_error"]["error"] == "boom"
+    assert step["tool_error"]["tool"] == "bad_tool"
 
 
 # ---------------------------------------------------------------------------
