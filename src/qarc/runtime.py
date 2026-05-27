@@ -2,31 +2,45 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
 from qarc.client import LLMClient
 from qarc.registry import ToolRegistry
-from qarc.trace import TraceStore
+
+
+@dataclass
+class RunResult:
+    status: str                        # "completed" | "error" | "max_steps_exceeded"
+    final_answer: str
+    steps: list[dict[str, Any]]        # raw step log (pre-TraceStore format)
+    run_id: str
 
 
 class AgentRuntime:
-    """Orchestrates LLM + ToolRegistry into a multi-step tool-use loop."""
+    """Orchestrates LLMClient + ToolRegistry into a multi-step tool-use loop."""
 
     def __init__(
         self,
-        client: LLMClient,
+        llm: LLMClient,
         registry: ToolRegistry,
-        trace_store: TraceStore,
+        system_prompt: str,
         max_steps: int = 10,
+        max_retries: int = 2,
     ) -> None:
-        self._client = client
+        self._llm = llm
         self._registry = registry
-        self._trace_store = trace_store
+        self._system_prompt = system_prompt
         self._max_steps = max_steps
+        self._max_retries = max_retries
 
-    def run(self, prompt: str, system: str = "") -> dict[str, Any]:  # type: ignore[empty-body]
-        """Execute agent loop. Returns trace dict.
+    @staticmethod
+    def _make_run_id() -> str:
+        ts = int(datetime.now(timezone.utc).timestamp())
+        return f"{uuid4().hex[:8]}_{ts}"
 
-        Terminal states: "completed" | "error" | "max_steps_exceeded" (ADR-007).
-        """
-        ...
+    def run(self, query: str) -> RunResult:
+        """Execute agent loop. Terminal states: completed | error | max_steps_exceeded."""
+        raise NotImplementedError
