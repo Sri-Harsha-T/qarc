@@ -1,8 +1,7 @@
-"""OpenAI-compatible LLMClient — covers Ollama, vLLM, LM Studio, and OpenAI."""
+"""OllamaClient — native /api/chat client with think parameter support."""
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import httpx
@@ -10,8 +9,8 @@ import httpx
 from qarc.client import LLMResponse, ToolCall
 
 
-def _to_oai_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Convert Anthropic-format internal messages to OpenAI API format."""
+def _to_ollama_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert Anthropic-format internal messages to Ollama native format."""
     result: list[dict[str, Any]] = []
     for msg in messages:
         role: str = msg["role"]
@@ -25,36 +24,24 @@ def _to_oai_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         tool_results = [b for b in content if b.get("type") == "tool_result"]
         texts = [b for b in content if b.get("type") == "text"]
         if tool_uses:
-            oai_calls = [
-                {
-                    "id": b["id"],
-                    "type": "function",
-                    "function": {
-                        "name": b["name"],
-                        "arguments": json.dumps(b["input"]),
-                    },
-                }
-                for b in tool_uses
-            ]
             result.append({
                 "role": "assistant",
-                "content": texts[0]["text"] if texts else None,
-                "tool_calls": oai_calls,
+                "content": texts[0]["text"] if texts else "",
+                "tool_calls": [
+                    {"function": {"name": b["name"], "arguments": b["input"]}}
+                    for b in tool_uses
+                ],
             })
         elif tool_results:
             for b in tool_results:
-                result.append({
-                    "role": "tool",
-                    "tool_call_id": b["tool_use_id"],
-                    "content": b["content"],
-                })
+                result.append({"role": "tool", "content": b["content"]})
         elif texts:
             result.append({"role": role, "content": texts[0]["text"]})
     return result
 
 
-def _to_oai_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Convert Anthropic-format tool schemas to OpenAI function format."""
+def _to_ollama_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert Anthropic-format tool schemas to Ollama native format."""
     return [
         {
             "type": "function",
@@ -68,20 +55,21 @@ def _to_oai_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-class OpenAICompatibleClient:
-    """LLMClient for any OpenAI-compatible API (Ollama, vLLM, LM Studio)."""
+class OllamaClient:
+    """LLMClient using Ollama's native /api/chat endpoint.
+
+    Supports think=False to suppress extended reasoning chains on qwen3 models.
+    """
 
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        model: str = "qwen2.5:7b",
-        api_key: str = "ollama",
+        model: str = "qwen3.5:9b",
         think: bool | None = None,
         timeout: float = 120.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._model = model
-        self._api_key = api_key
         self._think = think
         self._timeout = timeout
 
@@ -92,37 +80,35 @@ class OpenAICompatibleClient:
     ) -> LLMResponse:
         payload: dict[str, Any] = {
             "model": self._model,
-            "messages": _to_oai_messages(messages),
+            "stream": False,
+            "messages": _to_ollama_messages(messages),
         }
-        oai_tools = _to_oai_tools(tools)
-        if oai_tools:
-            payload["tools"] = oai_tools
-        # qwen3 / thinking-mode models: explicit opt-out prevents multi-minute traces
+        ollama_tools = _to_ollama_tools(tools)
+        if ollama_tools:
+            payload["tools"] = ollama_tools
         if self._think is not None:
             payload["think"] = self._think
 
         response = httpx.post(
-            f"{self._base_url}/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self._api_key}"},
+            f"{self._base_url}/api/chat",
             json=payload,
             timeout=self._timeout,
         )
         response.raise_for_status()
         data: dict[str, Any] = response.json()
-        choice = data["choices"][0]
-        message = choice["message"]
-        finish_reason: str = choice["finish_reason"]
+        message = data["message"]
+        done_reason: str = data.get("done_reason", "stop")
 
         tool_calls = [
             ToolCall(
-                id=tc["id"],
+                id=tc.get("id", f"tc_{i}"),
                 name=tc["function"]["name"],
-                input=json.loads(tc["function"]["arguments"]),
+                input=tc["function"]["arguments"],
             )
-            for tc in (message.get("tool_calls") or [])
+            for i, tc in enumerate(message.get("tool_calls") or [])
         ]
         return LLMResponse(
-            stop_reason="tool_use" if finish_reason == "tool_calls" else "end_turn",
+            stop_reason="tool_use" if (tool_calls or done_reason == "tool_calls") else "end_turn",
             tool_calls=tool_calls,
             content=message.get("content") or "",
         )

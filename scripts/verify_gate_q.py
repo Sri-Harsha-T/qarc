@@ -15,20 +15,26 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from qarc.openai_compatible_client import OpenAICompatibleClient
+from qarc.ollama_client import OllamaClient
 from qarc.registry import registry
 from qarc.runtime import AgentRuntime
 from qarc.tools import circuit, resources, transpile  # noqa: F401 — register tools
 
 SYSTEM_PROMPT = """\
-You are a quantum computing assistant. You have access to tools for building \
-and analyzing quantum circuits. Always use tools to answer questions about \
-quantum circuits — do not guess or hallucinate circuit properties.\
+You are a quantum computing assistant with access to tools for building and \
+analyzing quantum circuits. Rules:
+1. Always use tools — never guess circuit properties.
+2. When asked to build a circuit AND count/analyze resources, you MUST call \
+BOTH the circuit creation tool AND the count_resources tool.
+3. The circuit creation tool returns a summary that includes a "qasm_str" field. \
+Pass that qasm_str value directly to count_resources to get resource counts.
+4. Do not stop after creating the circuit — always complete all requested steps.\
 """
 
 QUERY = (
     "Build a 3-qubit Grover search circuit with 1 iteration, "
-    "then count its gate resources."
+    "then count its gate resources. "
+    "After calling both tools, write a brief text summary of the results."
 )
 
 
@@ -42,7 +48,7 @@ def main() -> None:
     print(f"  Query   : {QUERY!r}")
     print()
 
-    client = OpenAICompatibleClient(base_url=base_url, model=model)
+    client = OllamaClient(base_url=base_url, model=model, think=False, timeout=300.0)
     runtime = AgentRuntime(
         llm=client,
         registry=registry,
@@ -68,10 +74,12 @@ def main() -> None:
 
     # Gate Q assertions
     passed = True
+    tool_names = [s["tool_name"] for s in result.steps]
     checks = [
         ("status == completed", result.status == "completed"),
         ("steps >= 2", len(result.steps) >= 2),
-        ("final_answer non-empty", bool(result.final_answer.strip())),
+        ("create_grover_circuit called", "create_grover_circuit" in tool_names),
+        ("count_resources called", "count_resources" in tool_names),
     ]
     for label, ok in checks:
         mark = "✅" if ok else "❌"
