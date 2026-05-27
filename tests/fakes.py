@@ -14,9 +14,10 @@ class FakeLLMClient:
     Raises RuntimeError when the queue is exhausted.
     """
 
-    def __init__(self, responses: list[LLMResponse]) -> None:
+    def __init__(self, responses: list[LLMResponse], model: str = "fake") -> None:
         self._responses = list(responses)
         self.calls: list[tuple[list[dict[str, Any]], list[dict[str, Any]]]] = []
+        self.model = model
 
     def chat(
         self,

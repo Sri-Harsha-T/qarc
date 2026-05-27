@@ -80,7 +80,7 @@ class OpenAICompatibleClient:
         timeout: float = 120.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._model = model
+        self.model = model
         self._api_key = api_key
         self._think = think
         self._timeout = timeout
@@ -91,7 +91,7 @@ class OpenAICompatibleClient:
         tools: list[dict[str, Any]],
     ) -> LLMResponse:
         payload: dict[str, Any] = {
-            "model": self._model,
+            "model": self.model,
             "messages": _to_oai_messages(messages),
         }
         oai_tools = _to_oai_tools(tools)

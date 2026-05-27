@@ -69,7 +69,7 @@ class OllamaClient:
         timeout: float = 120.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._model = model
+        self.model = model
         self._think = think
         self._timeout = timeout
 
@@ -79,7 +79,7 @@ class OllamaClient:
         tools: list[dict[str, Any]],
     ) -> LLMResponse:
         payload: dict[str, Any] = {
-            "model": self._model,
+            "model": self.model,
             "stream": False,
             "messages": _to_ollama_messages(messages),
         }

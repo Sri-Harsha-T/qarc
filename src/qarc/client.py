@@ -21,6 +21,8 @@ class LLMResponse:
 
 
 class LLMClient(Protocol):
+    model: str
+
     def chat(
         self,
         messages: list[dict[str, Any]],

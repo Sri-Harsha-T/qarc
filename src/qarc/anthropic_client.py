@@ -14,7 +14,7 @@ class AnthropicClient:
     """Thin wrapper around anthropic.Anthropic that satisfies LLMClient."""
 
     def __init__(self, model: str = "claude-opus-4-7", api_key: str | None = None) -> None:
-        self._model = model
+        self.model = model
         self._client = anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
 
     def chat(
@@ -28,7 +28,7 @@ class AnthropicClient:
         )
         api_messages = [m for m in messages if m.get("role") != "system"]
         response = self._client.messages.create(
-            model=self._model,
+            model=self.model,
             max_tokens=4096,
             system=system or anthropic.NOT_GIVEN,  # type: ignore[arg-type]
             messages=api_messages,  # type: ignore[arg-type]
