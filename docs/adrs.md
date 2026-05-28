@@ -116,9 +116,11 @@ Mock-based tests that patch `AnthropicClient.chat` can pass even when the real c
 
 ### ADR-021: CI/CD Scope `Approved (amended)`
 
-**Decision:** Four CI steps: `ruff check`, `mypy`, `pytest`, Gate Q scripted verification.
+**Decision:** Five CI steps: `ruff check`, `mypy`, `pytest`, Gate Q branching verification, Gate Q eval harness verification.
 
-Amendment: CI migrated from pip to uv (`astral-sh/setup-uv@v4` + `uv sync --frozen`). Fourth step added: `uv run python scripts/verify_demos_q.py` (scripted mode, no API key, runs in <1s, 8/8 assertions). No AnthropicClient integration test in CI (no API key available on GitHub Actions).
+Amendment (Phase-005): CI migrated from pip to uv. Fourth step added: `uv run python scripts/verify_demos_q.py` (scripted, no API key, 8/8 assertions).
+
+Amendment (Phase-007): Fifth step added: `uv run python scripts/verify_eval_q.py` (scripted eval Gate Q — runs `run_eval()` for Grover/QFT/QAOA with `FakeLLMClient`, 3/3 assertions, no API key). AnthropicClient integration test deferred until API key available.
 
 ---
 
@@ -221,3 +223,13 @@ The parallel-list edge encoding (`source_nodes` + `target_nodes`) is chosen over
 **Decision:** Extend `_schema_for_type` in `registry.py` to emit `{"type": "array", "items": {"type": "integer"|"string"|"number"}}` for `list[int]`, `list[str]`, `list[float]` parameters. List branch inserted before the Optional branch. ~5 LOC change.
 
 Previously `list[int]` fell through to the `{"type": "string"}` fallback — producing a misleading schema. Now any tool with list parameters gets a correct, self-describing JSON Schema automatically. Prerequisite for ADR-024 (QAOA uses `list[int]`).
+
+---
+
+## Eval Harness
+
+### ADR-026: Eval Harness Multi-Query Design `Approved`
+
+**Decision:** `run_eval.py` uses `OllamaClient(think=False)` for Ollama (not `OpenAICompatibleClient`). Runs all three algorithm queries (Grover 3q, QFT 4q, QAOA 4-node ring p=1) against the configured backend in a loop. CI Gate Q: `scripts/verify_eval_q.py` scripted mode, 3 assertions, always runs (no API key).
+
+`OpenAICompatibleClient` ignores `think: false` on Ollama 0.24.0 — qwen3-family models produce 20–80s extended thinking chains. `OllamaClient` native `/api/chat` respects `think=False`. AnthropicClient eval deferred until `ANTHROPIC_API_KEY` available.
