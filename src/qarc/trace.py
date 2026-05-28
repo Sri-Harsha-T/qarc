@@ -25,4 +25,4 @@ class TraceStore:
         """Load trace by run_id. Raises FileNotFoundError if not found."""
         path = self._dir / f"{run_id}.jsonl"
         with path.open() as f:
-            return json.loads(f.readline())
+            return dict(json.loads(f.readline()))
