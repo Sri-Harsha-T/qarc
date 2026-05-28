@@ -18,13 +18,16 @@ graph LR
     F -->|summary| C
     F -->|raw_qasm| G[TraceStore]
     B -->|completed / error| H[Trace JSONL]
+    I[EvalCase list] --> J[run_eval]
+    J -->|per case| B
 ```
 
 **Key design decisions:**
-- `ToolRegistry` introspects Python type hints to auto-generate Anthropic-style JSON schemas
+- `ToolRegistry` introspects Python type hints (including `list[int]`) to auto-generate Anthropic-style JSON schemas
 - `CircuitInterpreter` returns `{"summary": {...}, "raw_qasm": "..."}` — summary goes to the LLM, raw QASM goes to the trace store only (keeps context window small)
 - `TraceStore` appends one JSONL record per agent step; traces are human-readable and queryable
 - LLM backend is a pluggable interface — `OllamaClient`, `AnthropicClient`, or `FakeLLMClient` for tests
+- `run_eval()` runs the same query against a list of `EvalCase` backends and returns structured `EvalResult` records
 
 ---
 
@@ -38,12 +41,13 @@ uv sync
 
 **Run with scripted demo (no API key, no Ollama required):**
 ```bash
-uv run python scripts/verify_demos_q.py
+uv run python scripts/verify_demos_q.py      # circuit demos (8 assertions)
+uv run python scripts/verify_eval_q.py       # eval harness (3 assertions)
 ```
 
-**Run with Ollama (local model):**
+**Run multi-algorithm eval with Ollama (local model):**
 ```bash
-DEMO_PROVIDER=ollama uv run python scripts/verify_demos_q.py
+uv run python scripts/run_eval.py            # Grover / QFT / QAOA vs. local model
 ```
 
 **Run with Anthropic API:**
@@ -93,21 +97,24 @@ Metadata: 2 steps, 2 tool calls, 0.129s
 
 ```
 src/qarc/
-├── registry.py          # ToolRegistry — schema generation from type hints
+├── registry.py          # ToolRegistry — schema generation from type hints (list[int] supported)
 ├── runtime.py           # AgentRuntime — agentic loop (tool_use → tool_result → ...)
 ├── interpreter.py       # CircuitInterpreter — dual-output: summary + raw_qasm
 ├── trace.py             # TraceStore — append-only JSONL trace writer
 ├── viewer.py            # render_trace() — human-readable trace display
+├── eval.py              # run_eval() — multi-backend eval runner (EvalCase / EvalResult)
 ├── client.py            # LLMClient protocol (interface)
 ├── ollama_client.py     # OllamaClient — native /api/chat, think=False
 ├── anthropic_client.py  # AnthropicClient — messages API + tool_use
 └── tools/
-    ├── circuit.py       # create_grover_circuit, create_qft_circuit
+    ├── circuit.py       # create_grover_circuit, create_qft_circuit, create_qaoa_circuit
     ├── resources.py     # count_resources — T-count, gate counts, depth
     └── transpile.py     # transpile_circuit — Qiskit transpiler, opt levels 0–3
 
 scripts/
 ├── verify_demos_q.py         # Gate Q — 8-assertion end-to-end verification
+├── verify_eval_q.py          # Gate Q — eval harness (3 assertions: Grover/QFT/QAOA)
+├── run_eval.py               # Multi-algorithm eval (Grover/QFT/QAOA) vs. configured backend
 ├── generate_example_traces.py # Canonical trace generation (scripted mode)
 └── trace_viewer.py           # CLI trace viewer
 
@@ -127,10 +134,12 @@ All architecture decisions are documented in [`docs/adrs.md`](docs/adrs.md). Key
 |---|---|---|
 | Framework | None | "Custom harness" claim must be total; no LangChain/LangGraph |
 | QASM format | QASM 2.0 via `qiskit.qasm2` | `circuit.qasm()` removed in Qiskit 1.0 |
-| Tool schemas | Introspected from type hints | No separate schema files to keep in sync |
+| Tool schemas | Introspected from type hints | No separate schema files to keep in sync; `list[int]` emits correct array schema |
 | Context size | Summary only to LLM | Raw QASM (8 KB+) would exhaust model context |
 | Test doubles | `FakeLLMClient` only | No `unittest.mock`; scripted responses + real tool calls |
-| CI | uv + Gate Q scripted step | Reproducible, no API key required in CI |
+| Eval harness | `run_eval()` + `EvalCase` | Same query against multiple backends; structured `EvalResult` for comparison |
+| Property tests | `hypothesis` + `registry.call()` | Structural invariants (qubit count, gate positivity) verified across full input range |
+| CI | uv + two Gate Q scripted steps | Reproducible, no API key required in CI |
 
 ---
 
@@ -166,8 +175,10 @@ class MyClient:
 ## Development
 
 ```bash
-uv run pytest tests/ -v          # 73 tests
+uv sync --all-extras             # install dev deps (includes hypothesis)
+uv run pytest tests/ -v          # 99 tests, 0 warnings
 uv run ruff check src/ tests/    # lint
 uv run mypy src/qarc/            # type check
-uv run python scripts/verify_demos_q.py  # Gate Q (8/8 assertions)
+uv run python scripts/verify_demos_q.py  # Gate Q — circuit demos (8/8 assertions)
+uv run python scripts/verify_eval_q.py  # Gate Q — eval harness (3/3 assertions)
 ```
