@@ -134,6 +134,73 @@ def test_count_resources_reports_basis_gates_not_library_gates() -> None:
     assert result["summary"]["total_gates"] >= 5
 
 
+# ---------------------------------------------------------------------------
+# create_qaoa_circuit (ADR-024)
+# ---------------------------------------------------------------------------
+
+RING_4_SOURCES = [0, 1, 2, 3]
+RING_4_TARGETS = [1, 2, 3, 0]
+
+
+def test_qaoa_circuit_returns_dual_output() -> None:
+    from qarc.tools.circuit import create_qaoa_circuit
+    result = create_qaoa_circuit(4, 1, RING_4_SOURCES, RING_4_TARGETS)
+    assert "summary" in result
+    assert "raw_qasm" in result
+
+
+def test_qaoa_circuit_summary_fields() -> None:
+    from qarc.tools.circuit import create_qaoa_circuit
+    s = create_qaoa_circuit(4, 1, RING_4_SOURCES, RING_4_TARGETS)["summary"]
+    assert s["n_qubits"] == 4
+    assert s["total_gates"] > 0
+    assert s["depth"] > 0
+    assert "gate_counts" in s
+
+
+def test_qaoa_circuit_no_composite_gates() -> None:
+    from qarc.tools.circuit import create_qaoa_circuit
+    s = create_qaoa_circuit(4, 1, RING_4_SOURCES, RING_4_TARGETS)["summary"]
+    assert "QAOA" not in s["gate_counts"], f"Composite QAOA gate leaked: {s['gate_counts']}"
+    assert "Q" not in s["gate_counts"]
+
+
+def test_qaoa_circuit_registered() -> None:
+    names = [s["name"] for s in registry.get_schemas()]
+    assert "create_qaoa_circuit" in names
+
+
+def test_qaoa_circuit_schema_list_params() -> None:
+    schema = next(s for s in registry.get_schemas() if s["name"] == "create_qaoa_circuit")
+    props = schema["input_schema"]["properties"]
+    assert props["source_nodes"] == {"type": "array", "items": {"type": "integer"}}
+    assert props["target_nodes"] == {"type": "array", "items": {"type": "integer"}}
+
+
+def test_qaoa_circuit_mismatched_edges_raises() -> None:
+    import pytest
+
+    from qarc.tools.circuit import create_qaoa_circuit
+    with pytest.raises(ValueError, match="equal length"):
+        create_qaoa_circuit(4, 1, [0, 1], [0])
+
+
+def test_qaoa_circuit_out_of_range_node_raises() -> None:
+    import pytest
+
+    from qarc.tools.circuit import create_qaoa_circuit
+    with pytest.raises(ValueError, match=r"\[0, 4\)"):
+        create_qaoa_circuit(4, 1, [0, 5], [1, 2])
+
+
+def test_qaoa_circuit_n_qubits_too_small_raises() -> None:
+    import pytest
+
+    from qarc.tools.circuit import create_qaoa_circuit
+    with pytest.raises(ValueError, match="n_qubits must be >= 2"):
+        create_qaoa_circuit(1, 1, [0], [0])
+
+
 def test_qasm_round_trip_6q_grover() -> None:
     # Regression: 6-qubit Grover QASM must survive interpreter serialize → count_resources.
     # Without decompose(reps=3) in interpreter.py, unitary_* gates were referenced but
