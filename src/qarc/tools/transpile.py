@@ -19,7 +19,10 @@ def transpile_circuit(
     from qiskit import transpile
     from qiskit_aer import AerSimulator
 
-    circuit = qiskit.qasm2.loads(qasm_str)
+    circuit = qiskit.qasm2.loads(
+        qasm_str,
+        custom_instructions=qiskit.qasm2.LEGACY_CUSTOM_INSTRUCTIONS,
+    )
     backend = AerSimulator()
     transpiled = transpile(circuit, backend=backend, optimization_level=optimization_level)
     return CircuitInterpreter().interpret(transpiled)

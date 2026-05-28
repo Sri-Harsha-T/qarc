@@ -19,7 +19,13 @@ def count_resources(qasm_str: str) -> dict[str, Any]:
     gates (e.g. GroverOperator's 'gate_Q') are resolved to basis gates.
     raw_qasm passthrough is the original input, not the transpiled circuit.
     """
-    circuit = qiskit.qasm2.loads(qasm_str)
+    # LEGACY_CUSTOM_INSTRUCTIONS treats all qelib1.inc gates as built-in,
+    # allowing them inside custom gate bodies (e.g. MCX uses p/u which are
+    # absent from the minimal built-in set qasm2.loads() uses by default).
+    circuit = qiskit.qasm2.loads(
+        qasm_str,
+        custom_instructions=qiskit.qasm2.LEGACY_CUSTOM_INSTRUCTIONS,
+    )
     transpiled = qiskit_transpile(circuit, AerSimulator(), optimization_level=0)
     ops: dict[str, int] = dict(transpiled.count_ops())
     return {
