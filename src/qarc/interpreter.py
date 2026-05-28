@@ -17,7 +17,8 @@ class CircuitInterpreter:
         summary goes to LLM messages; raw_qasm goes to TraceStore only.
         """
         gate_counts = dict(circuit.count_ops())
-        raw_qasm = qiskit.qasm2.dumps(circuit)  # ADR-001: use qasm2.dumps(), not circuit.qasm()
+        # decompose before serializing so all nested gate definitions are present in QASM
+        raw_qasm = qiskit.qasm2.dumps(circuit.decompose(reps=3))  # ADR-001: use qasm2.dumps(), not circuit.qasm()
         return {
             "summary": {
                 "n_qubits": circuit.num_qubits,
