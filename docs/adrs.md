@@ -26,7 +26,7 @@ Raw QASM for a 20-gate circuit is ~800 tokens. In a 4–5 step chain this would 
 
 ### ADR-018: Per-Algorithm Tool Design `Approved`
 
-**Decision:** `create_grover_circuit(n_qubits: int, n_iterations: int)` and `create_qft_circuit(n_qubits: int)` as separate registered functions. No generic dispatcher.
+**Decision:** `create_grover_circuit(n_qubits: int, n_iterations: int)`, `create_qft_circuit(n_qubits: int)`, and `create_qaoa_circuit(n_qubits, p_layers, source_nodes, target_nodes)` as separate registered functions. No generic dispatcher.
 
 A generic `create_circuit(algorithm: str, **kwargs)` would require `**kwargs` in the type signature, breaking `ToolRegistry`'s schema generation (which introspects concrete type hints). Separate functions also produce clearer Anthropic tool schemas — the LLM sees exactly what parameters each algorithm requires.
 
@@ -203,3 +203,21 @@ A complete ADR index before coding starts ensures no decision is "locked in a re
 **Decision:** Nested `tool_result` dict mirroring `CircuitInterpreter` return format. Each trace record: `{trace_id, step, role, content: {tool_use|tool_result|text}}`.
 
 One JSONL file per agent run, append-only. The nested structure mirrors the dual-output design from ADR-002, so `tool_result.summary` and `tool_result.raw_qasm` are directly addressable in the trace.
+
+---
+
+## Tool Design — v2 Additions
+
+### ADR-024: QAOA Circuit Tool Design `Approved`
+
+**Decision:** `create_qaoa_circuit(n_qubits: int, p_layers: int, source_nodes: list[int], target_nodes: list[int]) -> dict` using `QAOAAnsatz` with ZZ cost Hamiltonian. Edge i = `(source_nodes[i], target_nodes[i])`. Fixed angles π/4 per layer. Demo problem: MaxCut on 4-node ring graph, p=1.
+
+The parallel-list edge encoding (`source_nodes` + `target_nodes`) is chosen over `edges_json: str` because it produces a self-describing schema (array of integers) rather than an ambiguous string field. Validates equal-length lists and node bounds; raises `ValueError` on mismatch (caught as `tool_error` by the runtime). Closes v2-001.
+
+---
+
+### ADR-025: ToolRegistry List Type Extension `Approved`
+
+**Decision:** Extend `_schema_for_type` in `registry.py` to emit `{"type": "array", "items": {"type": "integer"|"string"|"number"}}` for `list[int]`, `list[str]`, `list[float]` parameters. List branch inserted before the Optional branch. ~5 LOC change.
+
+Previously `list[int]` fell through to the `{"type": "string"}` fallback — producing a misleading schema. Now any tool with list parameters gets a correct, self-describing JSON Schema automatically. Prerequisite for ADR-024 (QAOA uses `list[int]`).
