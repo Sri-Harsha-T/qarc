@@ -5,13 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
-
 from qarc.client import LLMResponse, ToolCall
 from qarc.registry import ToolRegistry
-from qarc.runtime import AgentRuntime, RunResult
+from qarc.runtime import AgentRuntime
 from tests.fakes import FakeLLMClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers

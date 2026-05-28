@@ -17,13 +17,15 @@ class CircuitInterpreter:
         summary goes to LLM messages; raw_qasm goes to TraceStore only.
         """
         gate_counts = dict(circuit.count_ops())
+        raw_qasm = qiskit.qasm2.dumps(circuit)  # ADR-001: use qasm2.dumps(), not circuit.qasm()
         return {
             "summary": {
                 "n_qubits": circuit.num_qubits,
                 "depth": circuit.depth(),
                 "gate_counts": gate_counts,
                 "total_gates": sum(gate_counts.values()),
+                # qasm_str included so LLM can pass it to count_resources/transpile_circuit
+                "qasm_str": raw_qasm,
             },
-            # ADR-001: circuit.qasm() removed in Qiskit 1.0; use qiskit.qasm2.dumps()
-            "raw_qasm": qiskit.qasm2.dumps(circuit),
+            "raw_qasm": raw_qasm,
         }

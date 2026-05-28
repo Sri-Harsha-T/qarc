@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import pytest
-import qiskit.qasm2
-from qiskit import QuantumCircuit
 
 from qarc.registry import registry
 from qarc.tools.resources import count_resources

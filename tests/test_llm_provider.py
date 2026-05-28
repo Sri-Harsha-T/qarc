@@ -10,7 +10,6 @@ from qarc.client import LLMClient, LLMResponse, ToolCall
 from qarc.openai_compatible_client import _to_oai_messages, _to_oai_tools
 from tests.fakes import FakeLLMClient
 
-
 # ---------------------------------------------------------------------------
 # _to_oai_messages
 # ---------------------------------------------------------------------------
@@ -53,7 +52,12 @@ def test_assistant_tool_use_with_text() -> None:
             "role": "assistant",
             "content": [
                 {"type": "text", "text": "Let me call the tool."},
-                {"type": "tool_use", "id": "call_1", "name": "count_resources", "input": {"qasm_str": "OPENQASM 2.0;"}},
+                {
+                    "type": "tool_use",
+                    "id": "call_1",
+                    "name": "count_resources",
+                    "input": {"qasm_str": "OPENQASM 2.0;"},
+                },
             ],
         }
     ]

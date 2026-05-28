@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
-
-from qarc.client import LLMResponse
 from qarc.registry import ToolRegistry
 from qarc.runtime import AgentRuntime, RunResult
 from tests.fakes import FakeLLMClient

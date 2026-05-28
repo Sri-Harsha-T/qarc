@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any
 
 from qarc.client import LLMClient
 from qarc.registry import ToolRegistry

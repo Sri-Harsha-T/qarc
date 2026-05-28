@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from qarc.client import LLMResponse, ToolCall
-from qarc.eval import EvalCase, EvalResult, run_eval
+from qarc.eval import EvalCase, run_eval
 from qarc.registry import ToolRegistry
-from qarc.runtime import RunResult
 from tests.fakes import FakeLLMClient
 
 SYSTEM = "You are a quantum agent."

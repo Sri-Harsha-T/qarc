@@ -27,7 +27,7 @@ htmlcov/
 .ruff_cache/
 
 # Traces (runtime output — gitignored except examples/)
-traces/
+traces/*
 !traces/examples/
 
 # IDE

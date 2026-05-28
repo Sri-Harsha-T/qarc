@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from qarc.client import LLMClient, LLMResponse, ToolCall
+from qarc.client import LLMClient, LLMResponse
 
 
 class FakeLLMClient:
