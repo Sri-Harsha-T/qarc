@@ -20,6 +20,7 @@ dev = [
     "pytest>=8.0,<9.0",
     "ruff>=0.4.0,<1.0",
     "mypy>=1.10,<2.0",
+    "hypothesis>=6.0,<7.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -43,3 +44,6 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore::PendingDeprecationWarning",
+]
