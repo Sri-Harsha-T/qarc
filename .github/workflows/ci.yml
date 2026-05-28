@@ -13,20 +13,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --frozen
 
       - name: Ruff lint
-        run: ruff check src/ tests/
+        run: uv run ruff check src/ tests/
 
       - name: Mypy type check
-        run: mypy src/qarc/
+        run: uv run mypy src/qarc/
 
       - name: Pytest
-        run: pytest tests/ -v || test $? -eq 5
+        run: uv run pytest tests/ -v
+
+      - name: Gate Q — scripted branching verification
+        run: uv run python scripts/verify_demos_q.py
