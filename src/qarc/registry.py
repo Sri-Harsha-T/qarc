@@ -13,13 +13,15 @@ _TYPE_MAP: dict[Any, dict[str, str]] = {
 }
 
 
-def _schema_for_type(tp: Any) -> dict[str, str]:
+def _schema_for_type(tp: Any) -> dict[str, Any]:
     """Map a Python type to a JSON Schema type dict."""
     if tp in _TYPE_MAP:
         return _TYPE_MAP[tp]
-    # Unwrap Optional[X] → X
     origin = getattr(tp, "__origin__", None)
     args = getattr(tp, "__args__", ())
+    # list[X] → {"type": "array", "items": <schema for X>}
+    if origin is list and args:
+        return {"type": "array", "items": _schema_for_type(args[0])}
     if origin is type(None):
         return {"type": "null"}
     # Optional[X] is Union[X, None]
