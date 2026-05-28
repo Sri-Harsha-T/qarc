@@ -132,3 +132,16 @@ def test_count_resources_reports_basis_gates_not_library_gates() -> None:
     gate_counts = result["summary"]["gate_counts"]
     assert "Q" not in gate_counts, f"Composite gate 'Q' leaked into counts: {gate_counts}"
     assert result["summary"]["total_gates"] >= 5
+
+
+def test_qasm_round_trip_6q_grover() -> None:
+    # Regression: 6-qubit Grover QASM must survive interpreter serialize → count_resources.
+    # Without decompose(reps=3) in interpreter.py, unitary_* gates were referenced but
+    # never defined, causing qasm2.loads() to fail with "not defined in this scope".
+    from qarc.tools.circuit import create_grover_circuit
+    result = create_grover_circuit(n_qubits=6, n_iterations=2)
+    qasm = result["summary"]["qasm_str"]
+    resources = count_resources(qasm_str=qasm)
+    assert resources["summary"]["total_gates"] > 0
+    assert resources["summary"]["n_qubits"] == 6
+    assert "gate_Q" not in resources["summary"]["gate_counts"]
