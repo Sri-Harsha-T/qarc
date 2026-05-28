@@ -112,6 +112,8 @@ Mock-based tests that patch `AnthropicClient.chat` can pass even when the real c
 
 73 tests across three layers: `ToolRegistry` schema generation, `AgentRuntime` execution loop (completed / error / max_steps_exceeded), `TraceStore` serialization, and per-tool Qiskit correctness. Amendment: Phase-005 adds only `test_qasm_round_trip_6q` (regression for the decompose fix) — no additional test files needed.
 
+Amendment (Phase-008): `hypothesis>=6.0,<7.0` added to dev extras. `tests/test_properties.py` adds 7 property-based tests (3 Grover, 2 QFT, 2 QAOA) verifying qubit count, gate count positivity, and no composite gates. All tests use `@settings(max_examples=20)`. Closes v2-004.
+
 ---
 
 ### ADR-021: CI/CD Scope `Approved (amended)`
@@ -233,3 +235,11 @@ Previously `list[int]` fell through to the `{"type": "string"}` fallback — pro
 **Decision:** `run_eval.py` uses `OllamaClient(think=False)` for Ollama (not `OpenAICompatibleClient`). Runs all three algorithm queries (Grover 3q, QFT 4q, QAOA 4-node ring p=1) against the configured backend in a loop. CI Gate Q: `scripts/verify_eval_q.py` scripted mode, 3 assertions, always runs (no API key).
 
 `OpenAICompatibleClient` ignores `think: false` on Ollama 0.24.0 — qwen3-family models produce 20–80s extended thinking chains. `OllamaClient` native `/api/chat` respects `think=False`. AnthropicClient eval deferred until `ANTHROPIC_API_KEY` available.
+
+---
+
+## Hardening
+
+### ADR-027: Property-Based Testing with Hypothesis `Approved`
+
+**Decision:** `hypothesis>=6.0,<7.0` added to dev extras. `tests/test_properties.py` adds 7 property-based tests covering all three circuit tools (Grover, QFT, QAOA): qubit count matches input, `total_gates > 0`, no composite `gate_Q` in `count_resources` output. All tests use `@settings(max_examples=20)` to keep CI under 60s. `filterwarnings = ["ignore::PendingDeprecationWarning"]` added to `[tool.pytest.ini_options]` — suppresses 111 Qiskit 1.3 warnings per run. Closes v2-004. Phase-008 is the final planned phase.
