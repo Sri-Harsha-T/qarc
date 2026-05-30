@@ -35,3 +35,6 @@ jobs:
 
       - name: Gate Q — eval harness scripted verification
         run: uv run python scripts/verify_eval_q.py
+
+      - name: Gate Q — scoring pipeline scripted verification
+        run: uv run python scripts/verify_scoring_q.py

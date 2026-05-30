@@ -19,6 +19,7 @@ class Baseline:
     expected_metrics: dict[str, Any]  # int | float | None values
     source: str
     tolerance_pct: float  # 0.0 = exact match; >0 = % error tolerance for gates/depth
+    expected_deeper: str | None = None  # comparison-tier: "qft" or "grover"
 
 
 def _default_path() -> Path:
@@ -40,6 +41,7 @@ def load_baselines(path: Path | None = None) -> list[Baseline]:
             expected_metrics=entry["expected_metrics"],
             source=entry["source"],
             tolerance_pct=float(entry.get("tolerance_pct", 0.0)),
+            expected_deeper=entry.get("expected_deeper"),
         )
         for entry in raw
     ]
