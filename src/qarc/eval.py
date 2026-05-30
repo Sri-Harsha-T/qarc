@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from time import perf_counter
+from typing import Any
 
 from qarc.client import LLMClient
 from qarc.registry import ToolRegistry
@@ -24,6 +25,7 @@ class EvalResult:
     final_answer: str
     latency_ms: float
     error: str | None
+    steps: list[dict[str, Any]] = field(default_factory=list)  # raw steps for scoring
 
 
 def run_eval(
@@ -56,6 +58,7 @@ def run_eval(
                 final_answer=run.final_answer,
                 latency_ms=latency_ms,
                 error=None,
+                steps=run.steps,
             ))
         except Exception as exc:
             latency_ms = round((perf_counter() - t0) * 1000, 1)
