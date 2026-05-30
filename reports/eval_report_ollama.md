@@ -1,12 +1,12 @@
 # qarc Evaluation Report
 
-Generated: 2026-05-30T10:40:29Z | 7 problems × 1 models
+Generated: 2026-05-30T14:52:57Z | 7 problems × 1 models
 
 ## Summary
 
 | Model | Pass Rate | Chain Correct | Mean Latency (ms) |
 |-------|-----------|---------------|-------------------|
-| ollama/qwen3.5:9b | 3/7 | 4/7 | 197265 |
+| ollama/qwen3.5:9b | 3/7 | 4/7 | 180576 |
 
 ## Per-Problem Results
 
@@ -14,43 +14,43 @@ Generated: 2026-05-30T10:40:29Z | 7 problems × 1 models
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | ❌ (exp 49, got 55) | ❌ (exp 29, got 35) | ✅ | ✅ | `metric_mismatch` | 64071 |
+| ollama/qwen3.5:9b | ✅ | ❌ (exp 49, got 28) | ❌ (exp 29, got 17) | ✅ | ✅ | `metric_mismatch` | 44944 |
 
 ### qft_4q (tier: explicit)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 40330 |
+| ollama/qwen3.5:9b | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 40192 |
 
 ### qaoa_ring4_p1 (tier: explicit)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 125392 |
+| ollama/qwen3.5:9b | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 45141 |
 
 ### grover_16_implicit (tier: inference)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 310364 |
+| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 307641 |
 
 ### qaoa_k3_p2 (tier: inference)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | 0.0% | 0.0% | ✅ | ✅ | `correct` | 133062 |
+| ollama/qwen3.5:9b | ✅ | 0.0% | 0.0% | ✅ | ✅ | `correct` | 170127 |
 
 ### search_64_selection (tier: selection)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 326477 |
+| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 338850 |
 
 ### qft_vs_grover_4q (tier: comparison)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `chain_incomplete` | 381163 |
+| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `chain_incomplete` | 317140 |
 
 ## Failure Analysis
 

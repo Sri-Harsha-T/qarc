@@ -158,15 +158,15 @@ All architecture decisions are documented in [`docs/adrs.md`](docs/adrs.md). Key
 
 qarc includes a scoring engine that benchmarks LLM agent accuracy against Qiskit-computed expert baselines across 7 problems of escalating difficulty (4 tiers).
 
-| Model | Pass Rate | Chain Correct | Mean Latency |
-|-------|-----------|---------------|--------------|
-| groq-llama70b/llama-3.3-70b-versatile | 3/7 (43%) | 4/7 | 828s |
-| gemini-flash/gemini-2.0-flash | 0/7 (0%) | 0/7 | 481s |
-| ollama/qwen3.5:9b | 3/7 (43%) | 4/7 | 197s |
+| Model | Pass Rate | Chain Correct | Mean Latency | Phase |
+|-------|-----------|---------------|--------------|-------|
+| groq-llama70b/llama-3.3-70b-versatile | 3/7 (43%) | 4/7 | 828s | 009 |
+| gemini-flash/gemini-2.0-flash | 0/7 (0%) | 0/7 | 481s | 009 |
+| ollama/qwen3.5:9b | 3/7 (43%) | 4/7 | 181s | 010 |
 
-| Problem | Tier | Groq-70B | Gemini Flash | qwen3.5 |
+| Problem | Tier | Groq-70B (ph009) | Gemini Flash (ph009) | qwen3.5 (ph010) |
 |---------|------|----------|--------------|---------|
-| grover_3q_1iter | explicit | ✅ correct | ❌ agent_error | ❌ metric_mismatch |
+| grover_3q_1iter | explicit | ✅ correct | ❌ agent_error | ❌ metric_mismatch (got 28, exp 49) |
 | qft_4q | explicit | ✅ correct | ❌ agent_error | ✅ correct |
 | qaoa_ring4_p1 | explicit | ✅ correct | ❌ agent_error | ✅ correct |
 | grover_16_implicit | inference | ❌ agent_error | ❌ agent_error | ❌ agent_error |
@@ -174,16 +174,20 @@ qarc includes a scoring engine that benchmarks LLM agent accuracy against Qiskit
 | search_64_selection | selection | ❌ agent_error | ❌ agent_error | ❌ agent_error |
 | qft_vs_grover_4q | comparison | ❌ chain_incomplete | ❌ chain_incomplete | ❌ chain_incomplete |
 
-Full report: [`reports/eval_report.md`](reports/eval_report.md) (Groq + Gemini) · [`reports/eval_report_ollama.md`](reports/eval_report_ollama.md) (Ollama)  
+Full report: [`reports/eval_report.md`](reports/eval_report.md) (Groq + Gemini, phase-009) · [`reports/eval_report_ollama.md`](reports/eval_report_ollama.md) (Ollama, phase-010)  
 Baselines: [`baselines/baselines.json`](baselines/baselines.json)
 
 ### Key Findings
 
-**Tier differentiation is sharp.** All three models fail every inference, selection, and comparison problem — none can derive `n_qubits = log₂(16) = 4` from "16 elements," identify Grover as appropriate for "unstructured search," or coordinate two independent tool chains. The capability boundary between explicit-parameter problems (where all parameters are stated) and reasoning problems (where they must be inferred) is a clean divide.
+**Tier differentiation is sharp and prompt-hardening did not close it.** Phase-010 added explicit parameter derivation instructions, multi-chain sequencing instructions, and a `lookup_algorithm` tool. qwen3.5:9b pass rate is unchanged at 3/7 after the phase-010 prompt changes. All inference, selection, and comparison problems still fail — the failure boundary is a model capability ceiling, not a prompt wording problem.
 
-**Model-specific failure modes differ.** Groq Llama-70B correctly solves all three explicit-tier problems but fails `qaoa_k3_p2` (inference) with `wrong_params` — it selects `create_qaoa_circuit` and infers `n_qubits=3` correctly, but encodes the K₃ edge list incorrectly, producing gate counts 51.9% off baseline. qwen3.5:9b solves `qaoa_k3_p2` correctly but fails `grover_3q_1iter` with `metric_mismatch` — it calls `transpile_circuit` before `count_resources` (unnecessary), shifting gate counts from 49 to 55. These are categorically different errors on the same problem set.
+**Phase-010 changed the `grover_3q_1iter` failure mode without fixing it.** Previously qwen3.5:9b called `transpile_circuit` before `count_resources` (instruction violation), shifting gate counts from 49 to 55. With the strengthened "do not call transpile" instruction, it now returns 28 gates (below the baseline of 49). This is consistent with the model stopping at the raw circuit summary from `create_grover_circuit` rather than routing through `count_resources`. The instruction prevented one mistake and revealed a second one.
 
-**Gemini Flash (free tier) exhausts step budgets.** It generates verbose multi-paragraph explanations at each tool-use step, taking ~480s per problem at 6 max-steps — `agent_error` on all 7. This is a tool-use efficiency finding, not a capability finding; the system prompt stop-condition fix addresses this class of failure.
+**Inference-tier `agent_error` is a step-budget failure, not a knowledge failure.** `grover_16_implicit` consumed 307s (near the 300s timeout per-step limit) and still hit `agent_error`. The model generates increasingly verbose reasoning at each step until the runtime terminates it. Adding `lookup_algorithm` and derivation prompts does not change this — the model needs a smaller reasoning budget or a tighter stop condition on unproductive steps.
+
+**Comparison-tier `chain_incomplete` is a context-window problem.** `qft_vs_grover_4q` took 317s and still stopped after chain A. At that point in the conversation, the full QASM for the first algorithm is in the message history, consuming enough context that the model loses track of the second chain obligation. The multi-chain instruction is present but not effective at that context depth for a 9B parameter model.
+
+**Gemini Flash (free tier) exhausts step budgets.** It generates verbose multi-paragraph explanations at each tool-use step, taking ~480s per problem at 6 max-steps — `agent_error` on all 7. This is a tool-use efficiency finding, not a capability finding.
 
 ---
 
