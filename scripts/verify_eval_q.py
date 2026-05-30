@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
 from qarc.client import LLMResponse, ToolCall
 from qarc.eval import EvalCase, run_eval
 from qarc.registry import registry
-from qarc.tools import circuit, resources, transpile  # noqa: F401
+from qarc.tools import algorithms, circuit, resources, transpile  # noqa: F401
 
 GROVER_QUERY = (
     "Build a 3-qubit Grover search circuit with 1 iteration, "

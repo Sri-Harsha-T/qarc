@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
 from qarc.client import LLMResponse, ToolCall
 from qarc.registry import registry
 from qarc.runtime import AgentRuntime
-from qarc.tools import circuit, resources, transpile  # noqa: F401
+from qarc.tools import algorithms, circuit, resources, transpile  # noqa: F401
 from qarc.trace import TraceStore
 
 QUERY = (

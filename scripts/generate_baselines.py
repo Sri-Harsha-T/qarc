@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from qarc.registry import registry
-from qarc.tools import circuit, resources, transpile  # noqa: F401 — register tools
+from qarc.tools import algorithms, circuit, resources, transpile  # noqa: F401 — register tools
 
 
 def _count(qasm_str: str) -> dict[str, int]:

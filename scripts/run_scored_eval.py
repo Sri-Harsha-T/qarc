@@ -37,7 +37,7 @@ from qarc.openai_compatible_client import OpenAICompatibleClient
 from qarc.registry import registry
 from qarc.report import generate_report
 from qarc.scoring import ScoringResult, score_run
-from qarc.tools import circuit, resources, transpile  # noqa: F401 — register tools
+from qarc.tools import algorithms, circuit, resources, transpile  # noqa: F401 — register tools
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "system_compact.txt"
 

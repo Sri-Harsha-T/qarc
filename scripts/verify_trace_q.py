@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from qarc.ollama_client import OllamaClient
 from qarc.registry import registry
 from qarc.runtime import AgentRuntime
-from qarc.tools import circuit, resources, transpile  # noqa: F401 — register tools
+from qarc.tools import algorithms, circuit, resources, transpile  # noqa: F401 — register tools
 from qarc.trace import TraceStore
 
 SYSTEM_PROMPT = """\

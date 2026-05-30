@@ -25,7 +25,7 @@ from qarc.client import LLMResponse, ToolCall
 from qarc.eval import EvalCase, run_eval
 from qarc.registry import registry
 from qarc.scoring import score_run
-from qarc.tools import circuit, resources, transpile  # noqa: F401 — register tools
+from qarc.tools import algorithms, circuit, resources, transpile  # noqa: F401 — register tools
 
 SYSTEM_PROMPT = "You are a quantum computing assistant."
 
