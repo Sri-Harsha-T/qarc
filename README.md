@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/Sri-Harsha-T/qarc/actions/workflows/ci.yml/badge.svg)
 
-A minimal, framework-free agentic loop that lets an LLM reason over quantum circuits using Qiskit tool calls. No LangChain, no LangGraph, no Pydantic AI — just a custom tool registry, a JSON trace store, and interchangeable LLM clients.
+A minimal custom agent loop that lets an LLM reason over quantum circuits using Qiskit tool calls. Built on a hand-rolled tool registry, a JSON trace store, and interchangeable LLM clients — no framework abstractions.
 
 ---
 
@@ -97,25 +97,36 @@ Metadata: 2 steps, 2 tool calls, 0.129s
 
 ```
 src/qarc/
-├── registry.py          # ToolRegistry — schema generation from type hints (list[int] supported)
-├── runtime.py           # AgentRuntime — agentic loop (tool_use → tool_result → ...)
-├── interpreter.py       # CircuitInterpreter — dual-output: summary + raw_qasm
-├── trace.py             # TraceStore — append-only JSONL trace writer
-├── viewer.py            # render_trace() — human-readable trace display
-├── eval.py              # run_eval() — multi-backend eval runner (EvalCase / EvalResult)
-├── client.py            # LLMClient protocol (interface)
-├── ollama_client.py     # OllamaClient — native /api/chat, think=False
-├── anthropic_client.py  # AnthropicClient — messages API + tool_use
+├── client.py                 # LLMClient protocol (interface)
+├── registry.py               # ToolRegistry — schema generation from type hints (list[int] supported)
+├── runtime.py                # AgentRuntime — custom agentic loop (tool_use → tool_result → ...)
+├── interpreter.py            # CircuitInterpreter — dual-output: summary + raw_qasm
+├── trace.py                  # TraceStore — append-only JSONL trace writer
+├── viewer.py                 # render_trace() — human-readable trace display
+├── eval.py                   # run_eval() — multi-backend eval runner (EvalCase / EvalResult)
+├── scoring.py                # scoring engine — metric extraction + pass/fail against baselines
+├── baselines.py              # baseline loader — Qiskit-computed ground truth (baselines.json)
+├── report.py                 # report generator — markdown eval reports
+├── ollama_client.py          # OllamaClient — native /api/chat, think=False
+├── anthropic_client.py       # AnthropicClient — messages API + tool_use
+├── openai_compatible_client.py # OpenAICompatibleClient — Groq / Gemini / OpenAI-compat backends
 └── tools/
-    ├── circuit.py       # create_grover_circuit, create_qft_circuit, create_qaoa_circuit
-    ├── resources.py     # count_resources — T-count, gate counts, depth
-    └── transpile.py     # transpile_circuit — Qiskit transpiler, opt levels 0–3
+    ├── circuit.py            # create_grover_circuit, create_qft_circuit, create_qaoa_circuit
+    ├── resources.py          # count_resources — T-count, gate counts, depth
+    └── transpile.py          # transpile_circuit — Qiskit transpiler, opt levels 0–3
 
 scripts/
-├── verify_demos_q.py         # Gate Q — 8-assertion end-to-end verification
+├── verify_gate_q.py          # Gate Q — end-to-end smoke test (circuit demos + eval harness)
+├── verify_demos_q.py         # Gate Q — 8-assertion circuit demo verification
 ├── verify_eval_q.py          # Gate Q — eval harness (3 assertions: Grover/QFT/QAOA)
-├── run_eval.py               # Multi-algorithm eval (Grover/QFT/QAOA) vs. configured backend
+├── verify_scoring_q.py       # Gate Q — scoring engine assertions
+├── verify_trace_q.py         # Gate Q — trace store assertions
+├── verify_qaoa_q.py          # Gate Q — QAOA-specific circuit assertions
+├── run_eval.py               # Multi-algorithm eval vs. configured backend
+├── run_scored_eval.py        # Full scored eval — 7 problems × N models → markdown report
+├── generate_baselines.py     # Qiskit-computed baseline generation (writes baselines/baselines.json)
 ├── generate_example_traces.py # Canonical trace generation (scripted mode)
+├── demo_qaoa.py              # QAOA demo script
 └── trace_viewer.py           # CLI trace viewer
 
 traces/examples/
@@ -132,7 +143,7 @@ All architecture decisions are documented in [`docs/adrs.md`](docs/adrs.md). Key
 
 | Decision | Choice | Reason |
 |---|---|---|
-| Framework | None | "Custom harness" claim must be total; no LangChain/LangGraph |
+| Agent loop | Custom (`AgentRuntime`) | Direct control over tool dispatch, step budget, and trace format; framework abstractions would hide the loop |
 | QASM format | QASM 2.0 via `qiskit.qasm2` | `circuit.qasm()` removed in Qiskit 1.0 |
 | Tool schemas | Introspected from type hints | No separate schema files to keep in sync; `list[int]` emits correct array schema |
 | Context size | Summary only to LLM | Raw QASM (8 KB+) would exhaust model context |
