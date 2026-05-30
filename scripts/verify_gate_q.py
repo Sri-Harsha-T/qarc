@@ -42,7 +42,7 @@ def main() -> None:
     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     model = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 
-    print(f"Gate Q verification")
+    print("Gate Q verification")
     print(f"  Backend : {base_url}")
     print(f"  Model   : {model}")
     print(f"  Query   : {QUERY!r}")
