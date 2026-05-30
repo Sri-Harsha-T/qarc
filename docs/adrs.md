@@ -38,7 +38,7 @@ A generic `create_circuit(algorithm: str, **kwargs)` would require `**kwargs` in
 
 **Decision:** Three single-responsibility tools: `create_grover_circuit` / `create_qft_circuit`, `count_resources`, `transpile_circuit`. The LLM must chain them explicitly.
 
-A coarse-grained "do everything" tool would eliminate the orchestration signal entirely. The entire point of qarc as a portfolio artifact is demonstrating agentic orchestration over quantum tools. Amendment: `force_chain` prompt instruction removed — chain behavior emergent from narrow tool definitions + system prompt framing.
+A coarse-grained tool eliminates the multi-step orchestration that makes agent reasoning inspectable and traceable — which is the property the scoring engine depends on to diagnose failure modes (`wrong_tool`, `wrong_params`, `qasm_passthrough_fail`) at each step of the chain. Amendment: `force_chain` prompt instruction removed — chain behavior emergent from narrow tool definitions + system prompt framing.
 
 ---
 
@@ -58,7 +58,7 @@ A general-purpose quantum assistant produces open-ended outputs difficult to ver
 2. LLM returns text stop without tool call → runtime terminates with `completed` status
 3. Chain exceeds `max_steps` → `max_steps_exceeded`, partial trace preserved
 
-Error-recovery traces (tool exception → retry) are a stronger portfolio signal than clean runs.
+Error-recovery traces (tool exception → retry) provide richer eval data than clean runs — they exercise the retry logic the runtime depends on.
 
 ---
 
@@ -66,7 +66,7 @@ Error-recovery traces (tool exception → retry) are a stronger portfolio signal
 
 **Decision:** Two prompt files: `prompts/system_full.txt` (human-readable, used for demos) and `prompts/system_compact.txt` (compressed, for eval runs with smaller models).
 
-A verbose prompt satisfies portfolio readers; a compact prompt keeps token overhead low in batch evaluation. Both exposed at runtime via `PROMPT_TIER` env var.
+The full prompt exists as inspection-friendly documentation of the agent's reasoning strategy; the compact prompt reduces token overhead for batch evaluation runs on smaller or cheaper models. Both exposed at runtime via `PROMPT_TIER` env var.
 
 ---
 
@@ -82,7 +82,7 @@ Grover = recognizable "hello world" of quantum computing. QFT = linear structure
 
 ### ADR-003: Multi-Model Evaluation Strategy `Approved (amended)`
 
-**Decision:** `AgentRuntime` accepts the LLM client as a constructor parameter. Primary dev backend: Ollama (local, free). Demo/portfolio: AnthropicClient (highest capability, integration-tested only when `ANTHROPIC_API_KEY` is set).
+**Decision:** `AgentRuntime` accepts the LLM client as a constructor parameter. Primary dev backend: Ollama (local, free). Integration backend: AnthropicClient (highest capability, integration-tested only when `ANTHROPIC_API_KEY` is set).
 
 Amendment: `OllamaClient` uses native `/api/chat` endpoint directly (`think=False`). `OpenAICompatibleClient` (which uses `/v1/chat/completions`) ignores `think: false` on Ollama 0.24.0, causing reasoning tokens to appear in output. Use `OllamaClient` for all Ollama invocations.
 
@@ -156,7 +156,7 @@ The parent planning repo has no git remote (local-only). All `gh` commands use e
 
 **Decision:** GitHub Issues on the public `qarc` repo with context-neutral engineering titles.
 
-Issue titles must not reference "Zapata", "portfolio", or application context. A hiring manager reading the issue list should see engineering work, not meta-commentary about the hiring process.
+Issue titles must not include company names, application context, or project-planning rationale. Anyone reading the issue list should see engineering work, not planning meta-commentary.
 
 ---
 
@@ -242,4 +242,70 @@ Previously `list[int]` fell through to the `{"type": "string"}` fallback — pro
 
 ### ADR-027: Property-Based Testing with Hypothesis `Approved`
 
-**Decision:** `hypothesis>=6.0,<7.0` added to dev extras. `tests/test_properties.py` adds 7 property-based tests covering all three circuit tools (Grover, QFT, QAOA): qubit count matches input, `total_gates > 0`, no composite `gate_Q` in `count_resources` output. All tests use `@settings(max_examples=20)` to keep CI under 60s. `filterwarnings = ["ignore::PendingDeprecationWarning"]` added to `[tool.pytest.ini_options]` — suppresses 111 Qiskit 1.3 warnings per run. Closes v2-004. Phase-008 is the final planned phase.
+**Decision:** `hypothesis>=6.0,<7.0` added to dev extras. `tests/test_properties.py` adds 7 property-based tests covering all three circuit tools (Grover, QFT, QAOA): qubit count matches input, `total_gates > 0`, no composite `gate_Q` in `count_resources` output. All tests use `@settings(max_examples=20)` to keep CI under 60s. `filterwarnings = ["ignore::PendingDeprecationWarning"]` added to `[tool.pytest.ini_options]` — suppresses 111 Qiskit 1.3 warnings per run. Closes v2-004.
+
+---
+
+## Scoring Engine (Phase-009)
+
+### ADR-028: Baseline Source Strategy — Qiskit-Computed Ground Truth `Approved`
+
+**Decision:** Baselines are computed by `scripts/generate_baselines.py`, which calls the actual qarc tools with correct parameters and records the output. No manual data entry. Stored as `baselines/baselines.json` (JSON, stdlib — no new runtime deps).
+
+The eval measures whether the LLM agent calls the right tools with the right parameters. The correct answer is what the tools produce with correct inputs. If Qiskit's decompositions change, re-run the script. Baselines carry a `tolerance_pct` field: `0.0` for explicit-tier (exact match required), `5.0` for inference-tier and above (±5% for gates/depth, where the agent may legitimately call intermediate tools that shift counts).
+
+Four problem tiers: **explicit** (query states exact parameters), **inference** (parameters must be derived from problem description), **selection** (agent must choose the correct algorithm), **comparison** (agent runs two chains and compares results).
+
+---
+
+### ADR-029: Metric Extraction Strategy — Steps, Not final_answer `Approved`
+
+**Decision:** Extract resource metrics from `steps[].tool_result.summary`, not from `final_answer` text. Two extractors: `extract_resource_metrics(steps)` (single-chain, returns last `count_resources` result paired with its preceding `create_*` call) and `extract_all_resource_metrics(steps)` (multi-chain, returns all results in order).
+
+`final_answer` is free-text LLM output — lossy, unreliable for numeric extraction. The step data is structured and always present when a tool was called successfully. The `ExtractedMetrics` dataclass captures `tool_name` and `tool_params` from the preceding `create_*` step, enabling `correct_tool_selected` and `correct_params` scoring.
+
+`EvalResult` gains a `steps` field (default `[]`) so scorers can access run steps without changing existing callers.
+
+---
+
+### ADR-030: Scoring Metric Design — Diagnostics Over Aggregates `Approved`
+
+**Decision:** `ScoringResult` with `failure_mode` as the primary diagnostic field (9 defined values: `correct`, `wrong_tool`, `wrong_params`, `missing_count`, `qasm_passthrough_fail`, `chain_incomplete`, `metric_mismatch`, `agent_error`, `rate_limited`). Field named `resource_chain_complete` (not `tool_chain_correct`) — it checks `create_*` → `count_resources` order, not the full ADR-005 chain which includes `transpile_circuit`.
+
+Scoring rules: exact match for qubits and T-count (any error is categorical). Gates/depth: exact match for explicit-tier (`tolerance_pct=0.0`), ±% error for inference and above. `_params_match()` skips null expected values (selection-tier design choices). `failure_mode` resolved in order: `agent_error` → `chain_incomplete` → `qasm_passthrough_fail` → `wrong_tool` → `wrong_params` → `missing_count` → `metric_mismatch` → `correct`.
+
+---
+
+### ADR-031: Scoring CI Strategy — Scripted Gate Q, Manual Real-Model Runs `Approved`
+
+**Decision:** `scripts/verify_scoring_q.py` covers 5 problems (3 explicit + 1 inference + 1 comparison) with `FakeLLMClient`, 20 CI assertions, no API key. Real-model scoring is manual (`scripts/run_scored_eval.py`). Sixth CI step: `uv run python scripts/verify_scoring_q.py`.
+
+CI proves the scoring pipeline is correct; manual runs prove the models are correct. These are different questions answered by different test types.
+
+---
+
+### ADR-032: Edge Equivalence in QAOA Scoring — Set Comparison `Approved`
+
+**Decision:** QAOA edge parameters (`source_nodes`, `target_nodes`) are compared as `frozenset[tuple[min, max]]`. `[0,0,1],[1,2,2]` and `[1,0,0],[2,2,1]` both represent K₃ — ordered list comparison would produce false `wrong_params` failures. Length check guards against duplicate-edge hallucination before frozenset comparison.
+
+---
+
+### ADR-033: Null Baselines for Selection Problems — Skip, Don't Fail `Approved`
+
+**Decision:** Null expected values in `expected_metrics` and `expected_params` are skipped by `_params_match()` and the scorer, not treated as failures. `ScoringResult` fields for null-baseline metrics are `None` (rendered as "N/A" in reports). `correct_params` can be `True` even when some expected params are null (e.g., `n_iterations: null` for selection-tier Grover — any reasonable iteration count is valid).
+
+---
+
+### ADR-034: Comparison Problem Scoring — Multi-Chain + Auditable Judgment `Approved`
+
+**Decision:** Comparison-tier problems use `extract_all_resource_metrics()` and score each sub-chain independently. The `comparison_correct: bool | None` field uses keyword matching on `final_answer` (the one case where text parsing is used — the comparative judgment exists only in the model's response, not in tool outputs). `comparison_raw: str | None` stores the first 500 chars of `final_answer` for manual review of keyword match results.
+
+`comparison_correct` returns `None` when the answer doesn't discuss depth at all (inconclusive, not penalized). Keyword matching uses subject-before-keyword heuristic to handle both "QFT is deeper" and "Grover has lower depth than QFT" phrasings.
+
+---
+
+### ADR-035: Multi-Provider Client Strategy — OpenAI-Compatible, finish_reason Normalization `Approved`
+
+**Decision:** Cloud providers (Google AI Studio, Groq) use `OpenAICompatibleClient` with provider-specific `base_url`. `_FINISH_REASON_MAP` normalizes cross-provider `finish_reason` values: `stop`/`end_turn` → `"end_turn"`, `tool_calls` → `"tool_use"`, `length` → `"max_tokens"`.
+
+**Critical fix:** `base_url` must be the full path prefix before `/chat/completions`. The client appends only `/chat/completions`, not `/v1/chat/completions`. Providers that already include `/v1` in their base_url (e.g., `https://api.groq.com/openai/v1`) would get a doubled path with the old convention. The `think` parameter is Ollama-specific — do not pass it to cloud providers.
