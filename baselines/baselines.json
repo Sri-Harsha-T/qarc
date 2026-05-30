@@ -1,0 +1,175 @@
+[
+  {
+    "problem_id": "grover_3q_1iter",
+    "tier": "explicit",
+    "query": "Build a 3-qubit Grover search circuit with 1 iteration, then count its resources.",
+    "expected_tool": "create_grover_circuit",
+    "expected_tools": null,
+    "expected_params": {
+      "n_qubits": 3,
+      "n_iterations": 1
+    },
+    "expected_metrics": {
+      "n_qubits": 3,
+      "total_gates": 49,
+      "depth": 29,
+      "t_count": 0
+    },
+    "source": "Qiskit GroverOperator + count_resources(opt=0) via qarc tools",
+    "tolerance_pct": 0.0
+  },
+  {
+    "problem_id": "qft_4q",
+    "tier": "explicit",
+    "query": "Build a 4-qubit QFT circuit, then count its resources.",
+    "expected_tool": "create_qft_circuit",
+    "expected_tools": null,
+    "expected_params": {
+      "n_qubits": 4
+    },
+    "expected_metrics": {
+      "n_qubits": 4,
+      "total_gates": 40,
+      "depth": 26,
+      "t_count": 0
+    },
+    "source": "Qiskit QFT(4).decompose() + count_resources(opt=0) via qarc tools",
+    "tolerance_pct": 0.0
+  },
+  {
+    "problem_id": "qaoa_ring4_p1",
+    "tier": "explicit",
+    "query": "Build a QAOA circuit for MaxCut on a 4-node ring graph (edges: 0-1, 1-2, 2-3, 3-0) with p=1 layer and count its resources.",
+    "expected_tool": "create_qaoa_circuit",
+    "expected_tools": null,
+    "expected_params": {
+      "n_qubits": 4,
+      "p_layers": 1,
+      "source_nodes": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "target_nodes": [
+        1,
+        2,
+        3,
+        0
+      ]
+    },
+    "expected_metrics": {
+      "n_qubits": 4,
+      "total_gates": 20,
+      "depth": 14,
+      "t_count": 0
+    },
+    "source": "Qiskit QAOAAnsatz(ZZ, reps=1) + count_resources(opt=0) via qarc tools",
+    "tolerance_pct": 0.0
+  },
+  {
+    "problem_id": "grover_16_implicit",
+    "tier": "inference",
+    "query": "Estimate resources for a Grover search over a database of 16 elements using 2 oracle iterations.",
+    "expected_tool": "create_grover_circuit",
+    "expected_tools": null,
+    "expected_params": {
+      "n_qubits": 4,
+      "n_iterations": 2
+    },
+    "expected_metrics": {
+      "n_qubits": 4,
+      "total_gates": 168,
+      "depth": 115,
+      "t_count": 0
+    },
+    "source": "16 elements \u2192 log\u2082(16)=4 qubits. Qiskit GroverOperator + count_resources(opt=0).",
+    "tolerance_pct": 5.0
+  },
+  {
+    "problem_id": "qaoa_k3_p2",
+    "tier": "inference",
+    "query": "Build a QAOA circuit for MaxCut on a complete graph K\u2083 with p=2 layers and count its resources.",
+    "expected_tool": "create_qaoa_circuit",
+    "expected_tools": null,
+    "expected_params": {
+      "n_qubits": 3,
+      "p_layers": 2,
+      "source_nodes": [
+        0,
+        0,
+        1
+      ],
+      "target_nodes": [
+        1,
+        2,
+        2
+      ]
+    },
+    "expected_metrics": {
+      "n_qubits": 3,
+      "total_gates": 27,
+      "depth": 21,
+      "t_count": 0
+    },
+    "source": "K\u2083 edges: (0,1),(0,2),(1,2). Qiskit QAOAAnsatz(ZZ, reps=2) + count_resources(opt=0).",
+    "tolerance_pct": 5.0
+  },
+  {
+    "problem_id": "search_64_selection",
+    "tier": "selection",
+    "query": "I want to find a marked item in an unstructured search space of 64 entries. What quantum algorithm is appropriate, and what resources would it require?",
+    "expected_tool": "create_grover_circuit",
+    "expected_tools": null,
+    "expected_params": {
+      "n_qubits": 6,
+      "n_iterations": null
+    },
+    "expected_metrics": {
+      "n_qubits": 6,
+      "total_gates": null,
+      "depth": null,
+      "t_count": 0
+    },
+    "source": "Unstructured search \u2192 Grover's. 64 entries \u2192 6 qubits. Reference metrics use n_iterations=6 (floor(\u03c0/4\u00d7\u221a64)) for documentation.",
+    "tolerance_pct": 5.0
+  },
+  {
+    "problem_id": "qft_vs_grover_4q",
+    "tier": "comparison",
+    "query": "Compare the resource requirements of QFT and Grover (1 iteration) on 4 qubits. Which has greater circuit depth?",
+    "expected_tool": null,
+    "expected_tools": [
+      {
+        "tool": "create_qft_circuit",
+        "params": {
+          "n_qubits": 4
+        },
+        "metrics": {
+          "n_qubits": 4,
+          "total_gates": 40,
+          "depth": 26,
+          "t_count": 0
+        }
+      },
+      {
+        "tool": "create_grover_circuit",
+        "params": {
+          "n_qubits": 4,
+          "n_iterations": 1
+        },
+        "metrics": {
+          "n_qubits": 4,
+          "total_gates": 86,
+          "depth": 59,
+          "t_count": 0
+        }
+      }
+    ],
+    "expected_params": null,
+    "expected_metrics": {},
+    "expected_deeper": "grover",
+    "source": "Qiskit QFT(4) vs GroverOperator(4,1), both + count_resources(opt=0).",
+    "tolerance_pct": 5.0
+  }
+]
