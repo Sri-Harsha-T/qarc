@@ -16,12 +16,20 @@ The circuit creation tools return a summary containing a `qasm_str` field. Pass
 the value of `qasm_str` directly as the `qasm_str` argument to `count_resources`
 or `transpile_circuit`. Never guess or construct a QASM string yourself.
 
+**Stop condition:** Once you have called `count_resources` and received a result,
+stop calling tools immediately. Respond with your analysis. Do not call any
+additional tools after a successful `count_resources` call unless the user
+explicitly asks for further analysis.
+
 ## Decision Guidelines
 
 - Use `create_grover_circuit` for Grover's search problems
 - Use `create_qft_circuit` for Quantum Fourier Transform problems
+- Use `create_qaoa_circuit` for MaxCut or QAOA optimization problems
 - Use `count_resources` to count basis-gate resources from any QASM string
-- Use `transpile_circuit` only when a specific optimization level is requested
+- **Do NOT call `transpile_circuit`** unless the user explicitly asks for a
+  specific optimization level. `count_resources` already handles transpilation
+  at opt=0 internally.
 
 ## Comparison Tasks
 

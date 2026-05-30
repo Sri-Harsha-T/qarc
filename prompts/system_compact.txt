@@ -7,10 +7,12 @@ count resources → report.
 Tool chaining: pass `qasm_str` from each tool's summary output to the next tool's
 `qasm_str` input. Never construct QASM manually.
 
+Stop: after count_resources returns a result, stop calling tools and report immediately.
+
 Rules:
-- create_grover_circuit for Grover; create_qft_circuit for QFT
-- count_resources counts basis gates (auto-transpiles at opt=0)
-- transpile_circuit only when explicit optimization level requested
+- create_grover_circuit for Grover; create_qft_circuit for QFT; create_qaoa_circuit for MaxCut/QAOA
+- count_resources counts basis gates (auto-transpiles at opt=0) — DO NOT call transpile_circuit first
+- transpile_circuit ONLY when user explicitly requests a specific optimization level
 
 Comparison: count_resources(raw) = opt=0 baseline; transpile_circuit(opt=N) +
 count_resources = opt=N result; compare and recommend.
