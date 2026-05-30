@@ -131,33 +131,77 @@ def _check_comparison_judgment(
     """Return True/False/None for comparison correctness via keyword matching.
 
     expected_winner: "qft" or "grover" (or any algorithm name)
-    Returns None when the answer does not discuss depth at all.
+    Returns None when depth is not discussed or the answer is inconclusive.
+
+    Strategy: check sentences for "[algo] has [greater/lower] depth" patterns.
+    "X is deeper than Y" → X wins.
+    "X has lower depth than Y" → Y wins (X is not the winner).
     """
     answer_lower = final_answer.lower()
-    depth_keywords = {
-        "deeper", "greater depth", "more depth", "higher depth",
-        "larger depth", "more layers", "larger circuit depth",
-    }
+    deeper_kw = {"deeper", "greater depth", "more depth", "higher depth", "larger depth"}
+    shallower_kw = {"shallower", "lower depth", "less depth", "fewer layers", "smaller depth"}
+
     winner_names: dict[str, set[str]] = {
         "qft": {"qft", "quantum fourier transform", "quantum fourier"},
         "grover": {"grover", "grover's", "grover search"},
     }
 
-    if not any(kw in answer_lower for kw in depth_keywords):
+    any_depth_kw = deeper_kw | shallower_kw
+    if not any(kw in answer_lower for kw in any_depth_kw):
         return None  # answer doesn't discuss depth at all
 
     exp_terms = winner_names.get(expected_winner, {expected_winner})
     other_key = next((k for k in winner_names if k != expected_winner), None)
     other_terms = winner_names.get(other_key, set()) if other_key else set()
 
-    expected_found = any(t in answer_lower for t in exp_terms)
-    other_found = any(t in answer_lower for t in other_terms)
+    # Check sentence by sentence for depth direction
+    import re
+    sentences = re.split(r"[.!?;]", answer_lower)
+    exp_wins = 0
+    other_wins = 0
+    for sent in sentences:
+        has_exp = any(t in sent for t in exp_terms)
+        has_other = any(t in sent for t in other_terms)
+        has_deeper = any(kw in sent for kw in deeper_kw)
+        has_shallower = any(kw in sent for kw in shallower_kw)
 
-    if expected_found and not other_found:
+        if has_exp and has_deeper and not has_other:
+            exp_wins += 1  # "QFT is deeper"
+        elif has_other and has_shallower and not has_exp:
+            exp_wins += 1  # "Grover has lower depth" → QFT wins
+        elif has_other and has_deeper and not has_exp:
+            other_wins += 1  # "Grover is deeper"
+        elif has_exp and has_shallower and not has_other:
+            other_wins += 1  # "QFT has lower depth" → Grover wins
+        elif has_exp and has_other:
+            # Both names in sentence — use subject position relative to depth keyword
+            idx_exp = min((sent.index(t) for t in exp_terms if t in sent), default=999)
+            idx_other = min((sent.index(t) for t in other_terms if t in sent), default=999)
+            if has_deeper:
+                # "X has greater depth than Y" → X (subject before keyword) wins
+                for kw in deeper_kw:
+                    if kw in sent:
+                        idx_kw = sent.index(kw)
+                        if idx_exp < idx_kw:
+                            exp_wins += 1
+                        else:
+                            other_wins += 1
+                        break
+            elif has_shallower:
+                # "X has lower depth than Y" → Y (after keyword) wins
+                for kw in shallower_kw:
+                    if kw in sent:
+                        idx_kw = sent.index(kw)
+                        if idx_other < idx_kw:
+                            exp_wins += 1  # other is shallow → exp wins
+                        else:
+                            other_wins += 1
+                        break
+
+    if exp_wins > other_wins:
         return True
-    if other_found and not expected_found:
+    if other_wins > exp_wins:
         return False
-    # Both or neither found near depth keywords — inconclusive
     return None
 
 
