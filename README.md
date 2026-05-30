@@ -143,6 +143,33 @@ All architecture decisions are documented in [`docs/adrs.md`](docs/adrs.md). Key
 
 ---
 
+## Evaluation Results
+
+qarc includes a scoring engine that benchmarks LLM agent accuracy against Qiskit-computed expert baselines across 7 problems of escalating difficulty (4 tiers).
+
+| Model | Pass Rate | Chain Correct | Mean Latency |
+|-------|-----------|---------------|--------------|
+| ollama/qwen3.5:9b | 3/7 (43%) | 4/7 | 197s |
+
+| Problem | Tier | Result | Failure Mode |
+|---------|------|--------|--------------|
+| grover_3q_1iter | explicit | ❌ | `metric_mismatch` — gates 55 vs 49 expected |
+| qft_4q | explicit | ✅ | correct |
+| qaoa_ring4_p1 | explicit | ✅ | correct |
+| grover_16_implicit | inference | ❌ | `agent_error` — can't derive n_qubits=4 from "16 elements" |
+| qaoa_k3_p2 | inference | ✅ | correct — K₃ edge encoding solved |
+| search_64_selection | selection | ❌ | `agent_error` — can't identify Grover for unstructured search |
+| qft_vs_grover_4q | comparison | ❌ | `chain_incomplete` — runs one chain, not both |
+
+Full report: [`reports/eval_report.md`](reports/eval_report.md)  
+Baselines: [`baselines/baselines.json`](baselines/baselines.json)
+
+### Key Findings
+
+qwen3.5:9b scores perfectly on QFT and ring-graph QAOA (explicit parameters), and correctly encodes K₃ graph edges for the inference-tier QAOA problem. It fails problems requiring algorithm reasoning: it cannot infer `n_qubits = log₂(16) = 4` from a problem description (`grover_16_implicit`, `agent_error`), cannot identify Grover's algorithm as appropriate for "unstructured search" (`search_64_selection`), and cannot coordinate two independent tool chains for the comparison problem. The `metric_mismatch` on `grover_3q_1iter` is a tool-chaining error: the model called `transpile_circuit` before `count_resources`, shifting gate counts from 49 to 55 — exactly the class of error this eval was built to detect.
+
+---
+
 ## Extending qarc
 
 **Add a new tool:**
