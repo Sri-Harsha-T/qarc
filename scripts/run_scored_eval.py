@@ -97,11 +97,12 @@ def _run_with_retry(
     system_prompt: str,
     delay_s: float,
     max_retries: int = 3,
+    max_steps: int = 10,
 ) -> EvalResult:
     delays = [1.0, 2.0, 4.0]
     for attempt in range(max_retries + 1):
         try:
-            results = run_eval(query, [case], registry, system_prompt, max_steps=12)
+            results = run_eval(query, [case], registry, system_prompt, max_steps=max_steps)
             return results[0]
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 429 and attempt < max_retries:
@@ -159,6 +160,12 @@ def main() -> None:
         default=2.0,
         help="Seconds between problems per provider (default: 2.0)",
     )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=10,
+        help="Max agent steps per run (default: 10)",
+    )
     args = parser.parse_args()
 
     provider_names = [p.strip() for p in args.providers.split(",")]
@@ -204,7 +211,10 @@ def main() -> None:
             print(f"  [{i+1}/{len(baselines)}] {baseline.problem_id}...", end="", flush=True)
             if i > 0:
                 time.sleep(args.delay)
-            eval_result = _run_with_retry(baseline.query, case, system_prompt, args.delay)
+            eval_result = _run_with_retry(
+                baseline.query, case, system_prompt, args.delay,
+                max_steps=args.max_steps,
+            )
             score = score_run(eval_result, baseline)
             scoring_results.append(score)
             status_icon = "✅" if score.failure_mode == "correct" else "❌"
