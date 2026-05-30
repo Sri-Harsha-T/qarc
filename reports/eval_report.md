@@ -1,12 +1,13 @@
 # qarc Evaluation Report
 
-Generated: 2026-05-30T10:40:29Z | 7 problems × 1 models
+Generated: 2026-05-30T12:38:10Z | 7 problems × 2 models
 
 ## Summary
 
 | Model | Pass Rate | Chain Correct | Mean Latency (ms) |
 |-------|-----------|---------------|-------------------|
-| ollama/qwen3.5:9b | 3/7 | 4/7 | 197265 |
+| gemini-flash/gemini-2.0-flash | 0/7 | 0/7 | 480643 |
+| groq-llama70b/llama-3.3-70b-versatile | 3/7 | 4/7 | 827759 |
 
 ## Per-Problem Results
 
@@ -14,52 +15,59 @@ Generated: 2026-05-30T10:40:29Z | 7 problems × 1 models
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | ❌ (exp 49, got 55) | ❌ (exp 29, got 35) | ✅ | ✅ | `metric_mismatch` | 64071 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 480511 |
+| groq-llama70b/llama-3.3-70b-versatile | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 965652 |
 
 ### qft_4q (tier: explicit)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 40330 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 480651 |
+| groq-llama70b/llama-3.3-70b-versatile | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 723496 |
 
 ### qaoa_ring4_p1 (tier: explicit)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 125392 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 480751 |
+| groq-llama70b/llama-3.3-70b-versatile | ✅ | ✅ | ✅ | ✅ | ✅ | `correct` | 722619 |
 
 ### grover_16_implicit (tier: inference)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 310364 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 480642 |
+| groq-llama70b/llama-3.3-70b-versatile | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 1445994 |
 
 ### qaoa_k3_p2 (tier: inference)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | ✅ | 0.0% | 0.0% | ✅ | ✅ | `correct` | 133062 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 480645 |
+| groq-llama70b/llama-3.3-70b-versatile | ✅ | 51.9% | 57.1% | ✅ | ✅ | `wrong_params` | 964609 |
 
 ### search_64_selection (tier: selection)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 326477 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 480741 |
+| groq-llama70b/llama-3.3-70b-versatile | N/A | N/A | N/A | N/A | ❌ | `agent_error` | 490259 |
 
 ### qft_vs_grover_4q (tier: comparison)
 
 | Model | Qubits | Gates | Depth | T-count | Chain | Failure Mode | Latency (ms) |
 |-------|--------|-------|-------|---------|-------|--------------|--------------|
-| ollama/qwen3.5:9b | N/A | N/A | N/A | N/A | ❌ | `chain_incomplete` | 381163 |
+| gemini-flash/gemini-2.0-flash | N/A | N/A | N/A | N/A | ❌ | `chain_incomplete` | 480562 |
+| groq-llama70b/llama-3.3-70b-versatile | N/A | N/A | N/A | N/A | ❌ | `chain_incomplete` | 481684 |
 
 ## Failure Analysis
 
 | Failure Mode | Count | Models Affected |
 |--------------|-------|-----------------|
-| `correct` | 3 | ollama/qwen3.5:9b |
-| `agent_error` | 2 | ollama/qwen3.5:9b |
-| `metric_mismatch` | 1 | ollama/qwen3.5:9b |
-| `chain_incomplete` | 1 | ollama/qwen3.5:9b |
+| `agent_error` | 8 | gemini-flash/gemini-2.0-flash, groq-llama70b/llama-3.3-70b-versatile |
+| `correct` | 3 | groq-llama70b/llama-3.3-70b-versatile |
+| `chain_incomplete` | 2 | gemini-flash/gemini-2.0-flash, groq-llama70b/llama-3.3-70b-versatile |
+| `wrong_params` | 1 | groq-llama70b/llama-3.3-70b-versatile |
 
 ## Methodology
 

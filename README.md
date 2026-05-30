@@ -149,24 +149,30 @@ qarc includes a scoring engine that benchmarks LLM agent accuracy against Qiskit
 
 | Model | Pass Rate | Chain Correct | Mean Latency |
 |-------|-----------|---------------|--------------|
+| groq-llama70b/llama-3.3-70b-versatile | 3/7 (43%) | 4/7 | 828s |
+| gemini-flash/gemini-2.0-flash | 0/7 (0%) | 0/7 | 481s |
 | ollama/qwen3.5:9b | 3/7 (43%) | 4/7 | 197s |
 
-| Problem | Tier | Result | Failure Mode |
-|---------|------|--------|--------------|
-| grover_3q_1iter | explicit | ❌ | `metric_mismatch` — gates 55 vs 49 expected |
-| qft_4q | explicit | ✅ | correct |
-| qaoa_ring4_p1 | explicit | ✅ | correct |
-| grover_16_implicit | inference | ❌ | `agent_error` — can't derive n_qubits=4 from "16 elements" |
-| qaoa_k3_p2 | inference | ✅ | correct — K₃ edge encoding solved |
-| search_64_selection | selection | ❌ | `agent_error` — can't identify Grover for unstructured search |
-| qft_vs_grover_4q | comparison | ❌ | `chain_incomplete` — runs one chain, not both |
+| Problem | Tier | Groq-70B | Gemini Flash | qwen3.5 |
+|---------|------|----------|--------------|---------|
+| grover_3q_1iter | explicit | ✅ correct | ❌ agent_error | ❌ metric_mismatch |
+| qft_4q | explicit | ✅ correct | ❌ agent_error | ✅ correct |
+| qaoa_ring4_p1 | explicit | ✅ correct | ❌ agent_error | ✅ correct |
+| grover_16_implicit | inference | ❌ agent_error | ❌ agent_error | ❌ agent_error |
+| qaoa_k3_p2 | inference | ❌ wrong_params | ❌ agent_error | ✅ correct |
+| search_64_selection | selection | ❌ agent_error | ❌ agent_error | ❌ agent_error |
+| qft_vs_grover_4q | comparison | ❌ chain_incomplete | ❌ chain_incomplete | ❌ chain_incomplete |
 
-Full report: [`reports/eval_report.md`](reports/eval_report.md)  
+Full report: [`reports/eval_report.md`](reports/eval_report.md) (Groq + Gemini) · [`reports/eval_report_ollama.md`](reports/eval_report_ollama.md) (Ollama)  
 Baselines: [`baselines/baselines.json`](baselines/baselines.json)
 
 ### Key Findings
 
-qwen3.5:9b scores perfectly on QFT and ring-graph QAOA (explicit parameters), and correctly encodes K₃ graph edges for the inference-tier QAOA problem. It fails problems requiring algorithm reasoning: it cannot infer `n_qubits = log₂(16) = 4` from a problem description (`grover_16_implicit`, `agent_error`), cannot identify Grover's algorithm as appropriate for "unstructured search" (`search_64_selection`), and cannot coordinate two independent tool chains for the comparison problem. The `metric_mismatch` on `grover_3q_1iter` is a tool-chaining error: the model called `transpile_circuit` before `count_resources`, shifting gate counts from 49 to 55 — exactly the class of error this eval was built to detect.
+**Tier differentiation is sharp.** All three models fail every inference, selection, and comparison problem — none can derive `n_qubits = log₂(16) = 4` from "16 elements," identify Grover as appropriate for "unstructured search," or coordinate two independent tool chains. The capability boundary between explicit-parameter problems (where all parameters are stated) and reasoning problems (where they must be inferred) is a clean divide.
+
+**Model-specific failure modes differ.** Groq Llama-70B correctly solves all three explicit-tier problems but fails `qaoa_k3_p2` (inference) with `wrong_params` — it selects `create_qaoa_circuit` and infers `n_qubits=3` correctly, but encodes the K₃ edge list incorrectly, producing gate counts 51.9% off baseline. qwen3.5:9b solves `qaoa_k3_p2` correctly but fails `grover_3q_1iter` with `metric_mismatch` — it calls `transpile_circuit` before `count_resources` (unnecessary), shifting gate counts from 49 to 55. These are categorically different errors on the same problem set.
+
+**Gemini Flash (free tier) exhausts step budgets.** It generates verbose multi-paragraph explanations at each tool-use step, taking ~480s per problem at 6 max-steps — `agent_error` on all 7. This is a tool-use efficiency finding, not a capability finding; the system prompt stop-condition fix addresses this class of failure.
 
 ---
 
