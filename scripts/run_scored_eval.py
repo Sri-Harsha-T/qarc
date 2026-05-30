@@ -58,6 +58,16 @@ PROVIDER_CONFIGS: dict[str, dict[str, str]] = {
 def _build_cases(provider_names: list[str]) -> list[EvalCase]:
     cases: list[EvalCase] = []
     for name in provider_names:
+        if name.startswith("ollama"):
+            # ollama or ollama/<model> format
+            from qarc.ollama_client import OllamaClient
+            model = name.split("/", 1)[1] if "/" in name else os.getenv("OLLAMA_MODEL", "qwen3.5:9b")
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            cases.append(EvalCase(
+                label=f"ollama/{model}",
+                client=OllamaClient(base_url=base_url, model=model, think=False, timeout=300.0),
+            ))
+            continue
         if name == "anthropic":
             api_key = os.getenv("ANTHROPIC_API_KEY")
             if not api_key:
