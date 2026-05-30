@@ -86,7 +86,7 @@ class OpenAICompatibleClient:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:11434",
+        base_url: str = "http://localhost:11434/v1",
         model: str = "qwen2.5:7b",
         api_key: str = "ollama",
         think: bool | None = None,
@@ -115,7 +115,7 @@ class OpenAICompatibleClient:
             payload["think"] = self._think
 
         response = httpx.post(
-            f"{self._base_url}/v1/chat/completions",
+            f"{self._base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self._api_key}"},
             json=payload,
             timeout=self._timeout,
