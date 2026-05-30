@@ -68,8 +68,21 @@ def _to_oai_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+_FINISH_REASON_MAP: dict[str, str] = {
+    "stop": "end_turn",
+    "end_turn": "end_turn",
+    "tool_calls": "tool_use",
+    "length": "max_tokens",
+}
+
+
 class OpenAICompatibleClient:
-    """LLMClient for any OpenAI-compatible API (Ollama, vLLM, LM Studio)."""
+    """LLMClient for any OpenAI-compatible API (Ollama, vLLM, LM Studio, Groq, Google AI Studio).
+
+    The `think` parameter is Ollama-specific (suppresses extended thinking on qwen3 models).
+    Do NOT pass `think` when using cloud providers (Groq, Google AI Studio) — they will
+    reject or ignore the parameter. Leave `think=None` (the default) for all cloud providers.
+    """
 
     def __init__(
         self,
@@ -121,8 +134,9 @@ class OpenAICompatibleClient:
             )
             for tc in (message.get("tool_calls") or [])
         ]
+        stop_reason = _FINISH_REASON_MAP.get(finish_reason, "end_turn")
         return LLMResponse(
-            stop_reason="tool_use" if finish_reason == "tool_calls" else "end_turn",
+            stop_reason=stop_reason,
             tool_calls=tool_calls,
             content=message.get("content") or "",
         )
