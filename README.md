@@ -163,29 +163,30 @@ qarc includes a scoring engine that benchmarks LLM agent accuracy against Qiskit
 | groq-llama70b/llama-3.3-70b-versatile | 3/7 (43%) | 4/7 | 828s | 009 |
 | gemini-flash/gemini-2.0-flash | 0/7 (0%) | 0/7 | 481s | 009 |
 | ollama/qwen3.5:9b | 3/7 (43%) | 4/7 | 181s | 010 |
+| **anthropic/claude-haiku-4-5** | **6/7 (85%)** | **6/7** | **13s** | **010** |
 
-| Problem | Tier | Groq-70B (ph009) | Gemini Flash (ph009) | qwen3.5 (ph010) |
-|---------|------|----------|--------------|---------|
-| grover_3q_1iter | explicit | ✅ correct | ❌ agent_error | ❌ metric_mismatch (got 28, exp 49) |
-| qft_4q | explicit | ✅ correct | ❌ agent_error | ✅ correct |
-| qaoa_ring4_p1 | explicit | ✅ correct | ❌ agent_error | ✅ correct |
-| grover_16_implicit | inference | ❌ agent_error | ❌ agent_error | ❌ agent_error |
-| qaoa_k3_p2 | inference | ❌ wrong_params | ❌ agent_error | ✅ correct |
-| search_64_selection | selection | ❌ agent_error | ❌ agent_error | ❌ agent_error |
-| qft_vs_grover_4q | comparison | ❌ chain_incomplete | ❌ chain_incomplete | ❌ chain_incomplete |
+| Problem | Tier | Groq-70B (ph009) | Gemini Flash (ph009) | qwen3.5 (ph010) | Haiku 4.5 (ph010) |
+|---------|------|----------|--------------|---------|---------|
+| grover_3q_1iter | explicit | ✅ correct | ❌ agent_error | ❌ metric_mismatch (got 28, exp 49) | ✅ correct |
+| qft_4q | explicit | ✅ correct | ❌ agent_error | ✅ correct | ✅ correct |
+| qaoa_ring4_p1 | explicit | ✅ correct | ❌ agent_error | ✅ correct | ✅ correct |
+| grover_16_implicit | inference | ❌ agent_error | ❌ agent_error | ❌ agent_error | ✅ correct |
+| qaoa_k3_p2 | inference | ❌ wrong_params | ❌ agent_error | ✅ correct | ✅ correct |
+| search_64_selection | selection | ❌ agent_error | ❌ agent_error | ❌ agent_error | ❌ chain_incomplete |
+| qft_vs_grover_4q | comparison | ❌ chain_incomplete | ❌ chain_incomplete | ❌ chain_incomplete | ✅ correct |
 
-Full report: [`reports/eval_report.md`](reports/eval_report.md) (Groq + Gemini, phase-009) · [`reports/eval_report_ollama.md`](reports/eval_report_ollama.md) (Ollama, phase-010)  
+Full report: [`reports/eval_report.md`](reports/eval_report.md) (Groq + Gemini, phase-009) · [`reports/eval_report_ollama.md`](reports/eval_report_ollama.md) (Ollama, phase-010) · [`reports/eval_report_haiku.md`](reports/eval_report_haiku.md) (Haiku 4.5, phase-010)  
 Baselines: [`baselines/baselines.json`](baselines/baselines.json)
 
 ### Key Findings
 
-**Tier differentiation is sharp and prompt-hardening did not close it.** Phase-010 added explicit parameter derivation instructions, multi-chain sequencing instructions, and a `lookup_algorithm` tool. qwen3.5:9b pass rate is unchanged at 3/7 after the phase-010 prompt changes. All inference, selection, and comparison problems still fail — the failure boundary is a model capability ceiling, not a prompt wording problem.
+**The failure boundary is model capability, not prompt wording — confirmed by Haiku 4.5.** claude-haiku-4-5 scores 6/7 (85%) using the same Phase-010 prompts and tools that left qwen3.5:9b at 3/7. It solved inference-tier (implicit parameter derivation) and comparison-tier (dual tool chains) problems that all previous models failed. The Phase-010 prompt hardening and `lookup_algorithm` tool work; smaller local models lack the instruction-following capacity to apply them.
 
-**Phase-010 changed the `grover_3q_1iter` failure mode without fixing it.** Previously qwen3.5:9b called `transpile_circuit` before `count_resources` (instruction violation), shifting gate counts from 49 to 55. With the strengthened "do not call transpile" instruction, it now returns 28 gates (below the baseline of 49). This is consistent with the model stopping at the raw circuit summary from `create_grover_circuit` rather than routing through `count_resources`. The instruction prevented one mistake and revealed a second one.
+**One universal failure: `search_64_selection` (selection tier).** Every model tested — Groq 70B, Ollama 9B, and Haiku — fails the selection tier. Haiku's failure mode (`chain_incomplete`) differs from Ollama's (`agent_error`), suggesting it at least attempts the task but doesn't complete the full tool chain to produce a scorable answer. This tier requires reasoning about algorithm choice from an under-specified problem description, not just executing a known algorithm.
 
-**Inference-tier `agent_error` is a step-budget failure, not a knowledge failure.** `grover_16_implicit` consumed 307s (near the 300s timeout per-step limit) and still hit `agent_error`. The model generates increasingly verbose reasoning at each step until the runtime terminates it. Adding `lookup_algorithm` and derivation prompts does not change this — the model needs a smaller reasoning budget or a tighter stop condition on unproductive steps.
+**Haiku is 14× faster than Ollama (local).** Mean latency of 13s vs. 181s. The comparison is not fair (API vs. local GPU), but the operational difference matters for interactive use.
 
-**Comparison-tier `chain_incomplete` is a context-window problem.** `qft_vs_grover_4q` took 317s and still stopped after chain A. At that point in the conversation, the full QASM for the first algorithm is in the message history, consuming enough context that the model loses track of the second chain obligation. The multi-chain instruction is present but not effective at that context depth for a 9B parameter model.
+**Phase-010 changed the `grover_3q_1iter` failure mode for Ollama without fixing it.** Previously qwen3.5:9b called `transpile_circuit` before `count_resources` (instruction violation), shifting gate counts from 49 to 55. With the strengthened "do not call transpile" instruction, it now returns 28 gates (below the baseline of 49) — stopping at the raw circuit summary rather than routing through `count_resources`. Haiku had no such issue.
 
 **Gemini Flash (free tier) exhausts step budgets.** It generates verbose multi-paragraph explanations at each tool-use step, taking ~480s per problem at 6 max-steps — `agent_error` on all 7. This is a tool-use efficiency finding, not a capability finding.
 
